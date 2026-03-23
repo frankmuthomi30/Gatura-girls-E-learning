@@ -121,7 +121,7 @@ async function loadCleanupData(adminClient: any) {
 }
 
 export async function GET(request: NextRequest) {
-  const routeContext = await requireAdminRoute(request);
+  const routeContext = await requireAdminRoute(request, { requireServiceRole: false });
   if (routeContext instanceof NextResponse) {
     return routeContext;
   }
@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const routeContext = await requireAdminRoute(request, { enforceOrigin: true });
+  const routeContext = await requireAdminRoute(request, { enforceOrigin: true, requireServiceRole: false });
   if (routeContext instanceof NextResponse) {
     return routeContext;
   }

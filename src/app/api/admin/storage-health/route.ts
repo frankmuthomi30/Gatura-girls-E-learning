@@ -7,7 +7,7 @@ const STORAGE_CRITICAL_MB = 450;
 const CLEANUP_CANDIDATE_DAYS = 180;
 
 export async function GET(request: NextRequest) {
-  const routeContext = await requireAdminRoute(request);
+  const routeContext = await requireAdminRoute(request, { requireServiceRole: false });
   if (routeContext instanceof NextResponse) {
     return routeContext;
   }

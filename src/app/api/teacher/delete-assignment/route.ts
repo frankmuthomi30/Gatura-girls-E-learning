@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
@@ -42,13 +41,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRole) {
-    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
-  }
-
-  const adminClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRole);
-  const { error: deleteError } = await adminClient.from('assignments').delete().eq('id', assignmentId);
+  const { error: deleteError } = await supabase.from('assignments').delete().eq('id', assignmentId);
 
   if (deleteError) {
     return NextResponse.json({ error: 'Failed to delete assignment' }, { status: 500 });

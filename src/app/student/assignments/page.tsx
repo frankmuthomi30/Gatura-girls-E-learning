@@ -25,7 +25,10 @@ export default function StudentAssignments() {
     const load = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       const { data: prof } = await supabase
         .from('profiles')
@@ -33,21 +36,14 @@ export default function StudentAssignments() {
         .eq('id', user.id)
         .single();
 
-      if (!prof) return;
-
-      const { data: streamData } = await supabase
-        .from('streams')
-        .select('id')
-        .eq('name', prof.stream)
-        .eq('academic_year', prof.academic_year)
-        .single();
-
-      if (!streamData) { setLoading(false); return; }
+      if (!prof) {
+        setLoading(false);
+        return;
+      }
 
       const { data: assignments } = await supabase
         .from('assignments')
         .select('*, subject:subjects(name), stream:streams(name)')
-        .or(`stream_id.eq.${streamData.id},stream_id.is.null`)
         .in('status', ['published', 'active'])
         .order('due_date', { ascending: false });
 

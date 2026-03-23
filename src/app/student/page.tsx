@@ -32,7 +32,10 @@ export default function StudentHome() {
     const load = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       const { data: prof } = await supabase
         .from('profiles')
@@ -40,24 +43,17 @@ export default function StudentHome() {
         .eq('id', user.id)
         .single();
 
-      if (!prof) return;
+      if (!prof) {
+        setLoading(false);
+        return;
+      }
       setProfile(prof as Profile);
 
-      // Get stream ID for this student's stream
-      const { data: streamData } = await supabase
-        .from('streams')
-        .select('id')
-        .eq('name', prof.stream)
-        .eq('academic_year', prof.academic_year)
-        .single();
-
-      if (!streamData) { setLoading(false); return; }
-
-      // Get all assignments for student's stream
+      // Get assignments visible to this student according to RLS.
       const { data: assignments } = await supabase
         .from('assignments')
         .select('*, subject:subjects(name)')
-        .or(`stream_id.eq.${streamData.id},stream_id.is.null`)
+        .in('status', ['published', 'active'])
         .order('due_date', { ascending: true });
 
       const { data: submissions } = await supabase

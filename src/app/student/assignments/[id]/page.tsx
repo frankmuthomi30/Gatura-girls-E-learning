@@ -81,7 +81,10 @@ export default function AssignmentDetail() {
     const load = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       const { data: asgn } = await supabase
         .from('assignments')
@@ -90,6 +93,10 @@ export default function AssignmentDetail() {
         .single();
 
       if (!asgn) { router.push('/student/assignments'); return; }
+      if (!['published', 'active'].includes(asgn.status || 'published')) {
+        router.push('/student/assignments');
+        return;
+      }
       setAssignment(asgn as Assignment);
 
       const mode = asgn.mode || 'file_upload';

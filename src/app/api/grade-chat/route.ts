@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { getSupabaseUrl } from '@/lib/supabase-env';
 
 const CHAT_RETENTION_DAYS = 7;
 const VALID_GRADES = [10, 11, 12];
@@ -52,18 +53,21 @@ async function getContext() {
     return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
   }
 
-  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRole) {
-    return { error: NextResponse.json({ error: 'Server configuration error' }, { status: 500 }) };
-  }
+  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const dataClient = serviceRole ? createClient(getSupabaseUrl(), serviceRole) : supabase;
 
   return {
-    adminClient: createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRole),
+    canPruneMessages: Boolean(serviceRole),
+    dataClient,
     profile: profile as ChatProfile,
   };
 }
 
-async function pruneOldMessages(adminClient: any) {
+async function pruneOldMessages(adminClient: any, enabled: boolean) {
+  if (!enabled) {
+    return;
+  }
+
   const cutoff = new Date(Date.now() - CHAT_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
   await adminClient.from('grade_chat_messages').delete().lt('created_at', cutoff);
 }
@@ -146,7 +150,7 @@ export async function GET(request: NextRequest) {
   const context = await getContext();
   if ('error' in context) return context.error;
 
-  await pruneOldMessages(context.adminClient);
+  await pruneOldMessages(context.dataClient, context.canPruneMessages);
 
   const grade = resolveGrade(context.profile, parseGrade(request.nextUrl.searchParams.get('grade')));
   if (!grade) {
@@ -154,7 +158,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const result = await loadMessages(context.adminClient, grade, context.profile);
+    const result = await loadMessages(context.dataClient, grade, context.profile);
     return NextResponse.json({
       role: context.profile.role,
       grade,
@@ -190,7 +194,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (replyToMessageId) {
-    const { data: replyTarget, error: replyTargetError } = await context.adminClient
+    const { data: replyTarget, error: replyTargetError } = await context.dataClient
       .from('grade_chat_messages')
       .select('id, grade')
       .eq('id', replyToMessageId)
@@ -201,7 +205,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  await pruneOldMessages(context.adminClient);
+  await pruneOldMessages(context.dataClient, context.canPruneMessages);
 
   const insertPayload: Record<string, string | number> = {
     grade,
@@ -213,7 +217,7 @@ export async function POST(request: NextRequest) {
     insertPayload.reply_to_id = replyToMessageId;
   }
 
-  const { error } = await context.adminClient.from('grade_chat_messages').insert(insertPayload);
+  const { error } = await context.dataClient.from('grade_chat_messages').insert(insertPayload);
 
   if (error) {
     if (replyToMessageId && isMissingColumnError(error, 'reply_to_id')) {
@@ -222,7 +226,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
   }
 
-  const result = await loadMessages(context.adminClient, grade, context.profile);
+  const result = await loadMessages(context.dataClient, grade, context.profile);
   return NextResponse.json({
     role: context.profile.role,
     grade,
@@ -249,7 +253,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Message id and content are required' }, { status: 400 });
   }
 
-  const { data: existing } = await context.adminClient
+  const { data: existing } = await context.dataClient
     .from('grade_chat_messages')
     .select('sender_id, grade')
     .eq('id', messageId)
@@ -259,7 +263,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'You can only edit your own messages' }, { status: 403 });
   }
 
-  const { error } = await context.adminClient
+  const { error } = await context.dataClient
     .from('grade_chat_messages')
     .update({ message })
     .eq('id', messageId);
@@ -268,7 +272,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to update message' }, { status: 500 });
   }
 
-  const result = await loadMessages(context.adminClient, grade!, context.profile);
+  const result = await loadMessages(context.dataClient, grade!, context.profile);
   return NextResponse.json({
     role: context.profile.role,
     grade,
@@ -289,7 +293,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Message id is required' }, { status: 400 });
   }
 
-  const { data: existing } = await context.adminClient
+  const { data: existing } = await context.dataClient
     .from('grade_chat_messages')
     .select('sender_id, grade')
     .eq('id', messageId)
@@ -307,12 +311,12 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Teachers can reply but cannot delete chat messages' }, { status: 403 });
   }
 
-  const { error } = await context.adminClient.from('grade_chat_messages').delete().eq('id', messageId);
+  const { error } = await context.dataClient.from('grade_chat_messages').delete().eq('id', messageId);
   if (error) {
     return NextResponse.json({ error: 'Failed to delete message' }, { status: 500 });
   }
 
-  const result = await loadMessages(context.adminClient, existing.grade, context.profile);
+  const result = await loadMessages(context.dataClient, existing.grade, context.profile);
   return NextResponse.json({
     role: context.profile.role,
     grade: existing.grade,

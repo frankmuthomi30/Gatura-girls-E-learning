@@ -1,9 +1,11 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { getSupabaseUrl } from '@/lib/supabase-env';
 
 type AdminRouteOptions = {
   enforceOrigin?: boolean;
+  requireServiceRole?: boolean;
 };
 
 type AdminRouteContext = {
@@ -61,14 +63,19 @@ export async function requireAdminRoute(
   }
 
   const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const requireServiceRole = options.requireServiceRole ?? true;
 
-  if (!serviceRole) {
+  if (requireServiceRole && !serviceRole) {
     return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
   }
 
+  const adminClient = serviceRole
+    ? createClient(getSupabaseUrl(), serviceRole)
+    : (supabase as unknown as SupabaseClient<any, 'public', any>);
+
   return {
     supabase,
-    adminClient: createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRole),
+    adminClient,
     userId: user.id,
   };
 }
