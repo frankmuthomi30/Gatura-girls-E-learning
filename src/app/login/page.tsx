@@ -1,10 +1,15 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn, getProfile } from '@/lib/auth';
 import { getDashboardPath } from '@/lib/auth';
-import { ThemeToggle } from '@/components/ThemeToggle';
+
+const ThemeToggle = dynamic(
+  () => import('@/components/ThemeToggle').then((module) => module.ThemeToggle),
+  { ssr: false }
+);
 
 export default function LoginPage() {
   const router = useRouter();

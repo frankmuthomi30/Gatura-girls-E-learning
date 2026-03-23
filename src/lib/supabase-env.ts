@@ -1,27 +1,16 @@
 const DEFAULT_SUPABASE_URL = 'https://qxiepbqdurkalvqwahxm.supabase.co';
+const DEFAULT_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_0B6oGINZFghltpKiFfbZpw_nyWzkvwl';
 
-function readEnv(name: string): string | undefined {
-  const value = process.env[name]?.trim();
-  return value ? value : undefined;
-}
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || DEFAULT_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY?.trim() ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
+  DEFAULT_SUPABASE_PUBLISHABLE_KEY;
 
 export function getSupabaseUrl(): string {
-  const supabaseUrl = readEnv('NEXT_PUBLIC_SUPABASE_URL');
-
-  return supabaseUrl || DEFAULT_SUPABASE_URL;
+  return SUPABASE_URL;
 }
 
 export function getSupabasePublishableKey(): string {
-  const publishableKey = readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY');
-  const anonKey = readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
-
-  if (publishableKey) {
-    return publishableKey;
-  }
-
-  if (anonKey) {
-    return anonKey;
-  }
-
-  throw new Error('Missing Supabase publishable key. Set NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY.');
+  return SUPABASE_PUBLISHABLE_KEY;
 }

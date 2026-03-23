@@ -1,12 +1,17 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { signOut } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import type { UserRole } from '@/lib/types';
+
+const ThemeToggle = dynamic(
+  () => import('@/components/ThemeToggle').then((module) => module.ThemeToggle),
+  { ssr: false }
+);
 
 interface NavItem {
   label: string;

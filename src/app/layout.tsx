@@ -31,6 +31,8 @@ export const viewport: Viewport = {
   themeColor: '#1A6B45',
 };
 
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({
   children,
 }: {

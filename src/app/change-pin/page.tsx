@@ -1,10 +1,15 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { changePin, getProfile, getDashboardPath } from '@/lib/auth';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { WEAK_PINS } from '@/lib/types';
+
+const ThemeToggle = dynamic(
+  () => import('@/components/ThemeToggle').then((module) => module.ThemeToggle),
+  { ssr: false }
+);
 
 export default function ChangePinPage() {
   const router = useRouter();
