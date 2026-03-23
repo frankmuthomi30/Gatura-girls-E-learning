@@ -1,10 +1,23 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!;
+import { getSupabasePublishableKey, getSupabaseUrl } from '@/lib/supabase-env';
 
 export async function middleware(request: NextRequest) {
+  let supabaseUrl: string;
+  let supabaseKey: string;
+
+  try {
+    supabaseUrl = getSupabaseUrl();
+    supabaseKey = getSupabasePublishableKey();
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : 'Supabase environment variables are missing.',
+      },
+      { status: 500 }
+    );
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
