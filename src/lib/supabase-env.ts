@@ -1,3 +1,5 @@
+const DEFAULT_SUPABASE_URL = 'https://qxiepbqdurkalvqwahxm.supabase.co';
+
 function readEnv(name: string): string | undefined {
   const value = process.env[name]?.trim();
   return value ? value : undefined;
@@ -6,11 +8,7 @@ function readEnv(name: string): string | undefined {
 export function getSupabaseUrl(): string {
   const supabaseUrl = readEnv('NEXT_PUBLIC_SUPABASE_URL');
 
-  if (!supabaseUrl) {
-    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL environment variable.');
-  }
-
-  return supabaseUrl;
+  return supabaseUrl || DEFAULT_SUPABASE_URL;
 }
 
 export function getSupabasePublishableKey(): string {
