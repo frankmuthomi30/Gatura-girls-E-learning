@@ -164,7 +164,7 @@ export function AppShell({
 
   return (
     <div className={`theme-${role} min-h-screen relative overflow-x-hidden`}>
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-white/40 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-white/40 to-transparent dark:from-white/5" />
 
       {/* Mobile header */}
       <header
@@ -173,7 +173,7 @@ export function AppShell({
       >
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 -ml-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-gray-700 hover:bg-black/5"
+          className="p-2 -ml-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-gray-700 hover:bg-black/5 dark:text-slate-100 dark:hover:bg-white/10"
           aria-label="Toggle menu"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -184,7 +184,7 @@ export function AppShell({
           <span className="text-lg">{roleIcons[role]}</span>
           <div>
             <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Gatura Girls</p>
-            <p className="font-semibold text-sm text-gray-900">{roleLabels[role]} Hub</p>
+            <p className="font-semibold text-sm text-gray-900 dark:text-slate-50">{roleLabels[role]} Hub</p>
           </div>
         </div>
         <ThemeToggle />
@@ -210,7 +210,7 @@ export function AppShell({
         }}
       >
         {/* Sidebar header with role color */}
-        <div className="p-5 border-b border-white/60">
+        <div className="p-5 border-b border-white/60 dark:border-slate-700/60">
           <div
             className="rounded-[28px] p-4 text-white relative overflow-hidden"
             style={{
@@ -231,7 +231,7 @@ export function AppShell({
           </div>
 
           <div
-            className="mt-4 flex items-center justify-between rounded-2xl border border-white/60 px-3 py-2 backdrop-blur-xl dark:border-white/10"
+            className="mt-4 flex items-center justify-between rounded-2xl border border-white/60 px-3 py-2 backdrop-blur-xl dark:border-slate-600/40"
             style={{ backgroundColor: 'var(--shell-elevated-bg)' }}
           >
             <div>
@@ -279,10 +279,10 @@ export function AppShell({
           })}
         </nav>
 
-        <div className="p-4 border-t border-white/60">
+        <div className="p-4 border-t border-white/60 dark:border-slate-700/60">
           <button
             onClick={handleSignOut}
-            className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-gray-600 hover:bg-white/80 w-full min-h-[44px] transition-colors dark:text-slate-200 dark:hover:bg-slate-800/80"
+            className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-gray-600 hover:bg-white/80 w-full min-h-[44px] transition-colors dark:text-slate-100 dark:hover:bg-white/10"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
