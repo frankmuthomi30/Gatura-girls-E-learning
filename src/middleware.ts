@@ -77,6 +77,9 @@ export async function middleware(request: NextRequest) {
 
   // Protected routes — must be logged in
   if (!user) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
@@ -118,5 +121,6 @@ export const config = {
     '/admin/:path*',
     '/teacher/:path*',
     '/student/:path*',
+    '/api/:path*',
   ],
 };

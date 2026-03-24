@@ -116,10 +116,10 @@ export default function AdminDashboard() {
   };
 
   const storageTone = storageHealth?.status === 'critical'
-    ? 'border-red-200 bg-red-50 text-red-800'
+    ? 'border-red-200 bg-red-50 text-red-800 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-200'
     : storageHealth?.status === 'warning'
-      ? 'border-amber-200 bg-amber-50 text-amber-800'
-      : 'border-emerald-200 bg-emerald-50 text-emerald-800';
+      ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200'
+      : 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-200';
 
   return (
     <div className="space-y-6">
@@ -183,42 +183,42 @@ export default function AdminDashboard() {
       {/* Summary Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Link href="/admin/students" className="card text-center hover:border-primary/30 transition-colors">
-          <p className="text-3xl font-bold text-primary">{stats.totalStudents}</p>
-          <p className="text-sm text-gray-500">Students</p>
+          <p className="text-3xl font-bold text-primary dark:text-primary-foreground">{stats.totalStudents}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Students</p>
         </Link>
         <Link href="/admin/teachers" className="card text-center hover:border-primary/30 transition-colors">
-          <p className="text-3xl font-bold text-blue-600">{stats.totalTeachers}</p>
-          <p className="text-sm text-gray-500">Teachers</p>
+          <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.totalTeachers}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Teachers</p>
         </Link>
         <div className="card text-center">
-          <p className="text-3xl font-bold text-purple-600">{stats.totalAssignments}</p>
-          <p className="text-sm text-gray-500">Assignments</p>
+          <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">{stats.totalAssignments}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Assignments</p>
         </div>
         <div className="card text-center">
-          <p className="text-3xl font-bold text-orange-600">{stats.totalSubmissions}</p>
-          <p className="text-sm text-gray-500">Submissions</p>
+          <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">{stats.totalSubmissions}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Submissions</p>
         </div>
       </div>
 
       {/* Live Exam Monitor Panel */}
       {(examStats.activeExams > 0 || examStats.inProgress > 0) && (
-        <div className="card border-2 border-yellow-300 bg-yellow-50">
-          <h2 className="font-semibold text-lg text-yellow-800 mb-3">📡 Live Exam Activity</h2>
+        <div className="card border-2 border-yellow-300 bg-yellow-50 dark:border-yellow-900/50 dark:bg-yellow-900/20">
+          <h2 className="font-semibold text-lg text-yellow-800 dark:text-yellow-200 mb-3">📡 Live Exam Activity</h2>
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
-              <p className="text-2xl font-bold text-yellow-700">{examStats.inProgress}</p>
-              <p className="text-xs text-yellow-600">🟡 In Exam Now</p>
+              <p className="text-2xl font-bold text-yellow-700 dark:text-yellow-400">{examStats.inProgress}</p>
+              <p className="text-xs text-yellow-600 dark:text-yellow-500">🟡 In Exam Now</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-green-700">{examStats.submitted}</p>
-              <p className="text-xs text-green-600">🟢 Submitted</p>
+              <p className="text-2xl font-bold text-green-700 dark:text-green-400">{examStats.submitted}</p>
+              <p className="text-xs text-green-600 dark:text-green-500">🟢 Submitted</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-red-700">{examStats.timedOut}</p>
-              <p className="text-xs text-red-600">🔴 Timed Out</p>
+              <p className="text-2xl font-bold text-red-700 dark:text-red-400">{examStats.timedOut}</p>
+              <p className="text-xs text-red-600 dark:text-red-500">🔴 Timed Out</p>
             </div>
           </div>
-          <p className="text-xs text-yellow-600 mt-3">{examStats.activeExams} active exam(s) across all teachers</p>
+          <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-3">{examStats.activeExams} active exam(s) across all teachers</p>
         </div>
       )}
 
@@ -227,11 +227,11 @@ export default function AdminDashboard() {
         <h2 className="font-semibold text-lg mb-3">Students by Stream</h2>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           {Object.entries(streamColors).map(([name, color]) => (
-            <div key={name} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
+            <div key={name} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-slate-900/40">
               <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
               <div>
                 <p className="font-medium text-sm">{name}</p>
-                <p className="text-xs text-gray-500">{stats.streamCounts[name] || 0} students</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{stats.streamCounts[name] || 0} students</p>
               </div>
             </div>
           ))}

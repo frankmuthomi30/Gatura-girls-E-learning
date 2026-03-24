@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase';
 import { LoadingSpinner, PageLoading } from '@/components/Loading';
 import type { GradeChatMessage, Profile, UserRole } from '@/lib/types';
 
 const GRADE_OPTIONS = [10, 11, 12];
+const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 function summarizeMessage(message: string) {
   const compact = message.replace(/\s+/g, ' ').trim();
@@ -62,12 +63,26 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [reactions, setReactions] = useState<Record<string, string[]>>({});
+  const [emojiPickerOpenId, setEmojiPickerOpenId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const highlightTimerRef = useRef<number | null>(null);
   const messageRefs = useRef<Record<string, HTMLElement | null>>({});
 
   const canChooseGrade = role !== 'student';
+
+  const toggleReaction = useCallback((messageId: string, emoji: string) => {
+    setReactions(prev => {
+      const current = prev[messageId] || [];
+      const exists = current.includes(emoji);
+      return {
+        ...prev,
+        [messageId]: exists ? current.filter(e => e !== emoji) : [...current, emoji],
+      };
+    });
+    setEmojiPickerOpenId(null);
+  }, []);
 
   const loadChat = async (showLoader = false, explicitGrade?: number) => {
     if (showLoader) {
@@ -260,26 +275,22 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
       )}
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-        <section className="chat-room-shell overflow-hidden rounded-[34px] border border-white/70 shadow-[0_28px_70px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:shadow-[0_28px_70px_rgba(2,6,23,0.34)]">
-          <header className="chat-room-header border-b border-slate-200/80 px-4 py-4 sm:px-5 dark:border-white/10">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-[linear-gradient(135deg,rgb(var(--color-primary-light)),rgb(var(--color-primary))_62%,rgb(var(--color-primary-dark)))] text-white shadow-lg shadow-black/10">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <section className="chat-room-shell overflow-hidden rounded-2xl sm:rounded-[34px] border border-white/70 shadow-[0_28px_70px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:shadow-[0_28px_70px_rgba(2,6,23,0.34)]">
+          <header className="chat-room-header border-b border-slate-200/80 px-3 py-3 sm:px-5 sm:py-4 dark:border-white/10">
+            <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <div className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,rgb(var(--color-primary-light)),rgb(var(--color-primary))_62%,rgb(var(--color-primary-dark)))] text-white shadow-lg shadow-black/10">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.181-3.149A7.962 7.962 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8Z" />
                   </svg>
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-[11px] font-semibold uppercase tracking-[0.24em] text-gray-400">Grade conversation</p>
-                  <h1 className="truncate text-lg font-semibold text-gray-900 dark:text-slate-50">Grade {selectedGrade} Room</h1>
-                  <p className="mt-0.5 truncate text-sm text-gray-500 dark:text-slate-400">{description}</p>
+                  <h1 className="truncate text-sm sm:text-base font-bold text-gray-900 dark:text-slate-50">Grade {selectedGrade} Room</h1>
+                  <p className="truncate text-[11px] sm:text-xs text-gray-500 dark:text-slate-400">{messages.length} messages</p>
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
-                  {messages.length} live
-                </span>
+              <div className="flex flex-wrap items-center gap-2">
                 {canChooseGrade && (
                   <select
                     value={selectedGrade}
@@ -288,14 +299,14 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
                       setSelectedGrade(nextGrade);
                       void loadChat(false, nextGrade);
                     }}
-                    className="input-field min-w-[128px] px-3 py-2 text-sm"
+                    className="input-field min-w-[100px] sm:min-w-[128px] px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm"
                   >
                     {GRADE_OPTIONS.map((grade) => (
                       <option key={grade} value={grade}>Grade {grade}</option>
                     ))}
                   </select>
                 )}
-                <button onClick={() => void loadChat(false, selectedGrade)} className="btn-secondary px-4 py-2 text-sm">
+                <button onClick={() => void loadChat(false, selectedGrade)} className="btn-secondary px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm">
                   Refresh
                 </button>
               </div>
@@ -303,102 +314,147 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
           </header>
 
           <div className="chat-room-body grid min-h-[72vh] grid-rows-[1fr_auto]">
-            <div className="overflow-y-auto px-3 py-4 sm:px-4">
+            <div className="overflow-y-auto px-2 py-3 sm:px-4 sm:py-4" onClick={() => setEmojiPickerOpenId(null)}>
               {messages.length === 0 ? (
-                <div className="mx-auto mt-16 max-w-md rounded-[28px] border border-dashed border-slate-300/90 bg-white/75 px-6 py-10 text-center backdrop-blur-sm dark:border-slate-600 dark:bg-slate-900/60">
-                  <p className="text-sm font-semibold text-gray-700 dark:text-slate-200">No messages yet in Grade {selectedGrade}</p>
-                  <p className="mt-2 text-sm leading-6 text-gray-500 dark:text-slate-400">Start with a question, reminder, or update. Replies will stay attached to the exact message they answer.</p>
+                <div className="mx-auto mt-16 max-w-xs sm:max-w-md rounded-2xl border border-dashed border-slate-300/90 bg-white/75 px-5 py-8 sm:px-6 sm:py-10 text-center backdrop-blur-sm dark:border-slate-600 dark:bg-slate-900/60">
+                  <div className="text-4xl mb-3">💬</div>
+                  <p className="text-sm font-semibold text-gray-700 dark:text-slate-200">No messages yet</p>
+                  <p className="mt-1.5 text-xs sm:text-sm leading-5 text-gray-500 dark:text-slate-400">Start the conversation in Grade {selectedGrade}. Tap reply to keep threads organized.</p>
                 </div>
               ) : (
-                <div className="space-y-1 pb-2">
+                <div className="space-y-0.5 pb-2">
                   {messages.map((message, index) => {
                     const previousMessage = messages[index - 1];
                     const nextMessage = messages[index + 1];
                     const isOwnMessage = message.sender?.id === profile?.id;
                     const senderName = isOwnMessage ? 'You' : (message.sender?.display_name || message.sender?.full_name || 'Learner');
-                    const roleLabel = isOwnMessage ? 'you' : (message.sender?.role || 'student');
+                    const roleLabel = message.sender?.role || 'student';
                     const showDayChip = !previousMessage || !isSameCalendarDay(previousMessage.created_at, message.created_at);
                     const startsGroup = !previousMessage || previousMessage.sender?.id !== message.sender?.id || !isSameCalendarDay(previousMessage.created_at, message.created_at);
                     const endsGroup = !nextMessage || nextMessage.sender?.id !== message.sender?.id || !isSameCalendarDay(nextMessage.created_at, message.created_at);
+                    const messageReactions = reactions[message.id] || [];
 
                     return (
-                      <div key={message.id} className="space-y-2">
+                      <div key={message.id}>
                         {showDayChip && (
-                          <div className="flex justify-center py-3">
-                            <span className="chat-day-chip rounded-full border px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] shadow-sm backdrop-blur-sm">
+                          <div className="flex justify-center py-2 sm:py-3">
+                            <span className="chat-day-chip rounded-lg px-3 py-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider shadow-sm">
                               {formatDayLabel(message.created_at)}
                             </span>
                           </div>
                         )}
 
-                        <article
+                        <div
                           ref={(element) => {
                             messageRefs.current[message.id] = element;
                           }}
-                          className={`group flex gap-2 ${isOwnMessage ? 'justify-end' : 'justify-start'} ${startsGroup ? 'mt-1' : 'mt-0.5'}`}
+                          className={`group flex ${isOwnMessage ? 'justify-end' : 'justify-start'} ${startsGroup ? 'mt-2 sm:mt-3' : 'mt-[2px]'}`}
                         >
+                          {/* Avatar for others */}
                           {!isOwnMessage && (
-                            <div className="hidden w-10 shrink-0 sm:block">
+                            <div className="w-7 sm:w-8 shrink-0 self-end mr-1">
                               {endsGroup ? (
-                                <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/80 bg-white/85 text-xs font-semibold text-slate-600 shadow-sm dark:border-white/10 dark:bg-slate-800/80 dark:text-slate-200">
+                                <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-slate-200 text-[10px] sm:text-xs font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-200">
                                   {senderName.slice(0, 1).toUpperCase()}
                                 </div>
                               ) : null}
                             </div>
                           )}
 
-                          <div className={`flex max-w-[min(100%,38rem)] flex-col ${isOwnMessage ? 'items-end' : 'items-start'}`}>
-                            {startsGroup && (
-                              <div className={`mb-1.5 flex flex-wrap items-center gap-2 px-1 text-[11px] uppercase tracking-[0.16em] ${isOwnMessage ? 'justify-end text-emerald-700 dark:text-emerald-300' : 'justify-start text-slate-500 dark:text-slate-400'}`}>
-                                <span className="font-semibold">{senderName}</span>
-                                <span className="opacity-70">{roleLabel}</span>
-                              </div>
+                          <div className={`relative max-w-[85%] sm:max-w-[75%] lg:max-w-[65%] ${isOwnMessage ? 'items-end' : 'items-start'}`}>
+                            {/* Sender name */}
+                            {startsGroup && !isOwnMessage && (
+                              <p className="mb-0.5 ml-1 text-[10px] sm:text-[11px] font-semibold text-primary dark:text-primary-light">
+                                {senderName}
+                                {roleLabel !== 'student' && (
+                                  <span className="ml-1.5 text-[9px] sm:text-[10px] font-medium text-gray-400 dark:text-slate-500">
+                                    {roleLabel}
+                                  </span>
+                                )}
+                              </p>
                             )}
 
+                            {/* Message bubble */}
                             <div
-                              className={`chat-bubble w-full border px-4 py-3 transition-all ${
+                              className={`chat-bubble relative border px-3 py-1.5 sm:px-3.5 sm:py-2 ${
                                 isOwnMessage
-                                  ? `${startsGroup ? 'rounded-t-[22px]' : 'rounded-t-[14px]'} ${endsGroup ? 'rounded-b-[22px] rounded-br-md' : 'rounded-b-[14px] rounded-br-[6px]'} chat-bubble--own shadow-[0_10px_22px_rgba(26,107,69,0.10)]`
-                                  : `${startsGroup ? 'rounded-t-[22px]' : 'rounded-t-[14px]'} ${endsGroup ? 'rounded-b-[22px] rounded-bl-md' : 'rounded-b-[14px] rounded-bl-[6px]'} chat-bubble--other shadow-[0_10px_22px_rgba(15,23,42,0.06)]`
-                              } ${highlightedMessageId === message.id ? 'ring-2 ring-primary/35 shadow-[0_0_0_6px_rgba(26,107,69,0.08)]' : ''}`}
+                                  ? `chat-bubble--own ${startsGroup ? 'rounded-t-2xl rounded-tl-2xl' : 'rounded-t-lg rounded-tl-2xl'} ${endsGroup ? 'rounded-b-2xl rounded-br-md' : 'rounded-b-lg rounded-br-[4px]'} rounded-bl-2xl`
+                                  : `chat-bubble--other ${startsGroup ? 'rounded-t-2xl rounded-tr-2xl' : 'rounded-t-lg rounded-tr-2xl'} ${endsGroup ? 'rounded-b-2xl rounded-bl-md' : 'rounded-b-lg rounded-bl-[4px]'} rounded-br-2xl`
+                              } ${highlightedMessageId === message.id ? 'ring-2 ring-primary/40 shadow-lg' : ''}`}
                             >
+                              {/* Reply preview */}
                               {message.replyTo && (
                                 <button
                                   type="button"
-                                  onClick={() => jumpToMessage(message.replyTo!.id)}
-                                  className={`mb-3 block w-full rounded-2xl border-l-4 px-3 py-2 text-left ${
+                                  onClick={(e) => { e.stopPropagation(); jumpToMessage(message.replyTo!.id); }}
+                                  className={`mb-1.5 block w-full rounded-lg border-l-[3px] px-2.5 py-1.5 text-left ${
                                     isOwnMessage
-                                      ? 'chat-reply-preview--own border-emerald-700/60 hover:bg-white/60 dark:hover:bg-black/25'
-                                      : 'chat-reply-preview--other border-primary/45 hover:bg-primary/10 dark:hover:bg-white/10'
+                                      ? 'chat-reply-preview--own border-white/50 hover:bg-white/30'
+                                      : 'chat-reply-preview--other border-primary/40 hover:bg-primary/8'
                                   }`}
                                 >
-                                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em]">Replying to {message.replyTo.sender_name}</p>
-                                  <p className="mt-1 text-sm leading-5 opacity-90">{summarizeMessage(message.replyTo.message)}</p>
+                                  <p className="text-[10px] sm:text-[11px] font-bold truncate">{message.replyTo.sender_name}</p>
+                                  <p className="text-[11px] sm:text-xs leading-4 opacity-80 truncate">{summarizeMessage(message.replyTo.message)}</p>
                                 </button>
                               )}
 
-                              <p className="whitespace-pre-wrap break-words text-sm leading-7">{message.message}</p>
+                              {/* Message text */}
+                              <p className="whitespace-pre-wrap break-words text-[13px] sm:text-sm leading-[1.45] sm:leading-relaxed">{message.message}</p>
 
-                              <div className={`mt-2 flex items-center gap-2 ${isOwnMessage ? 'justify-end' : 'justify-between'}`}>
-                                {!isOwnMessage && (
-                                  <div className="hidden text-[11px] uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500 sm:block">
-                                    {endsGroup ? 'Reply in context' : ''}
-                                  </div>
-                                )}
-                                <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-                                  <span>{formatMessageTime(message.created_at)}</span>
-                                  <div className="flex flex-wrap items-center gap-1.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+                              {/* Timestamp + actions row */}
+                              <div className={`flex items-center gap-1 mt-0.5 ${isOwnMessage ? 'justify-end' : 'justify-end'}`}>
+                                <span className="text-[10px] sm:text-[11px] opacity-50 select-none">{formatMessageTime(message.created_at)}</span>
+                              </div>
+                            </div>
+
+                            {/* Emoji reactions display */}
+                            {messageReactions.length > 0 && (
+                              <div className={`flex flex-wrap gap-1 mt-0.5 ${isOwnMessage ? 'justify-end mr-1' : 'justify-start ml-1'}`}>
+                                {messageReactions.map((emoji, i) => (
+                                  <button
+                                    key={i}
+                                    onClick={(e) => { e.stopPropagation(); toggleReaction(message.id, emoji); }}
+                                    className="flex items-center gap-0.5 rounded-full bg-white/90 dark:bg-slate-800/90 border border-slate-200/60 dark:border-slate-600/40 px-1.5 py-0.5 text-sm shadow-sm hover:scale-110 transition-transform"
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Action buttons - WhatsApp style hover */}
+                            <div className={`absolute ${isOwnMessage ? '-left-1 sm:-left-2' : '-right-1 sm:-right-2'} top-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5`}>
+                              {/* Emoji button */}
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setEmojiPickerOpenId(emojiPickerOpenId === message.id ? null : message.id); }}
+                                className="flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-600/60 shadow-md text-sm hover:scale-110 transition-transform"
+                                title="React"
+                              >
+                                😊
+                              </button>
+                              {/* Chevron menu */}
+                              <div className="relative">
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setEmojiPickerOpenId(emojiPickerOpenId === `menu-${message.id}` ? null : `menu-${message.id}`); }}
+                                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-600/60 shadow-md text-slate-500 dark:text-slate-400 hover:scale-110 transition-transform"
+                                  title="More"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                </button>
+                                {emojiPickerOpenId === `menu-${message.id}` && (
+                                  <div
+                                    onClick={(e) => e.stopPropagation()}
+                                    className={`absolute z-20 ${isOwnMessage ? 'right-0' : 'left-0'} top-8 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-600/60 shadow-xl py-1 min-w-[130px]`}
+                                  >
                                     <button
                                       type="button"
-                                      onClick={() => beginReply(message)}
+                                      onClick={() => { beginReply(message); setEmojiPickerOpenId(null); }}
                                       disabled={!supportsReplies}
-                                      className={`rounded-full px-2.5 py-1 font-semibold transition-colors ${
-                                        isOwnMessage
-                                          ? 'bg-white/75 text-emerald-900 hover:bg-white dark:bg-black/15 dark:text-emerald-50 dark:hover:bg-black/25'
-                                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700'
-                                      } disabled:cursor-not-allowed disabled:opacity-50`}
+                                      className="w-full text-left px-3 py-2 text-xs sm:text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40"
                                     >
-                                      Reply
+                                      ↩️ Reply
                                     </button>
                                     {message.canEdit && (
                                       <button
@@ -407,32 +463,48 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
                                           setEditingId(message.id);
                                           setReplyingTo(null);
                                           setDraft(message.message);
+                                          setEmojiPickerOpenId(null);
                                           window.requestAnimationFrame(() => composerRef.current?.focus());
                                         }}
-                                        className={`rounded-full px-2.5 py-1 font-semibold transition-colors ${
-                                          isOwnMessage
-                                            ? 'bg-white/75 text-emerald-900 hover:bg-white dark:bg-black/15 dark:text-emerald-50 dark:hover:bg-black/25'
-                                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700'
-                                        }`}
+                                        className="w-full text-left px-3 py-2 text-xs sm:text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
                                       >
-                                        Edit
+                                        ✏️ Edit
                                       </button>
                                     )}
                                     {message.canDelete && (
                                       <button
                                         type="button"
-                                        onClick={() => void handleDelete(message.id)}
-                                        className="rounded-full bg-red-500 px-2.5 py-1 font-semibold text-white transition-colors hover:bg-red-600"
+                                        onClick={() => { void handleDelete(message.id); setEmojiPickerOpenId(null); }}
+                                        className="w-full text-left px-3 py-2 text-xs sm:text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"
                                       >
-                                        Delete
+                                        🗑️ Delete
                                       </button>
                                     )}
                                   </div>
-                                </div>
+                                )}
                               </div>
                             </div>
+
+                            {/* Emoji picker popup */}
+                            {emojiPickerOpenId === message.id && (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className={`absolute z-20 ${isOwnMessage ? 'right-0' : 'left-8 sm:left-10'} -top-1 flex items-center gap-1 bg-white dark:bg-slate-800 rounded-full border border-slate-200/80 dark:border-slate-600/60 shadow-xl px-2 py-1.5`}
+                              >
+                                {QUICK_EMOJIS.map((emoji) => (
+                                  <button
+                                    key={emoji}
+                                    type="button"
+                                    onClick={() => toggleReaction(message.id, emoji)}
+                                    className="text-lg sm:text-xl hover:scale-125 transition-transform px-0.5"
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                        </article>
+                        </div>
                       </div>
                     );
                   })}
@@ -441,15 +513,16 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
               <div ref={bottomRef} />
             </div>
 
-            <form onSubmit={submitMessage} className="chat-composer-dock border-t border-slate-200/80 p-3 backdrop-blur-xl sm:p-4 dark:border-white/10">
+            {/* Composer - WhatsApp style */}
+            <form onSubmit={submitMessage} className="chat-composer-dock border-t border-slate-200/80 px-2 py-2 sm:px-3 sm:py-3 dark:border-white/10">
               {(replyingTo || editingId) && (
-                <div className="mb-3 flex items-start justify-between gap-3 rounded-[22px] border border-slate-200 bg-slate-50/90 px-4 py-3 dark:border-white/10 dark:bg-slate-900/70">
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-slate-400">
-                      {editingId ? 'Editing message' : `Replying to ${replyingTo?.sender?.display_name || replyingTo?.sender?.full_name || (replyingTo?.sender?.id === profile?.id ? 'You' : 'Learner')}`}
+                <div className="mb-2 flex items-center justify-between gap-2 rounded-xl border-l-[3px] border-primary bg-slate-50/90 px-3 py-2 dark:border-primary-light dark:bg-slate-900/70">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] sm:text-[11px] font-bold text-primary dark:text-primary-light">
+                      {editingId ? 'Editing' : `Replying to ${replyingTo?.sender?.display_name || replyingTo?.sender?.full_name || (replyingTo?.sender?.id === profile?.id ? 'You' : 'Learner')}`}
                     </p>
-                    <p className="mt-1 truncate text-sm text-gray-700 dark:text-slate-200">
-                      {editingId ? 'You are updating an existing message.' : summarizeMessage(replyingTo?.message || '')}
+                    <p className="truncate text-[11px] sm:text-xs text-gray-600 dark:text-slate-300">
+                      {editingId ? 'Updating your message' : summarizeMessage(replyingTo?.message || '')}
                     </p>
                   </div>
                   <button
@@ -459,24 +532,32 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
                       setReplyingTo(null);
                       composerRef.current?.focus();
                     }}
-                    className="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                    className="shrink-0 rounded-full p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200 transition-colors"
                   >
-                    Clear
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                   </button>
                 </div>
               )}
 
-              <div className="chat-composer flex items-end gap-2 rounded-[30px] border px-3 py-3 shadow-[0_14px_30px_rgba(15,23,42,0.06)] dark:shadow-[0_14px_30px_rgba(2,6,23,0.24)]">
+              <div className="chat-composer flex items-end gap-1.5 sm:gap-2 rounded-[24px] sm:rounded-[30px] border px-2 py-1.5 sm:px-3 sm:py-2 shadow-sm dark:shadow-none">
                 <textarea
                   ref={composerRef}
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      if (draft.trim()) {
+                        void submitMessage(event);
+                      }
+                    }
+                  }}
                   rows={1}
                   maxLength={800}
-                  className="min-h-[58px] flex-1 resize-y border-0 bg-transparent px-2 py-2 text-sm leading-7 text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
-                  placeholder={role === 'student' ? 'Message your grade room...' : 'Write a reply for this room...'}
+                  className="min-h-[40px] sm:min-h-[44px] max-h-[120px] flex-1 resize-none border-0 bg-transparent px-1.5 sm:px-2 py-1.5 sm:py-2 text-[13px] sm:text-sm leading-[1.4] sm:leading-relaxed text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
+                  placeholder={role === 'student' ? 'Type a message...' : 'Type a message...'}
                 />
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 items-center">
                   {(editingId || replyingTo) && (
                     <button
                       type="button"
@@ -485,24 +566,31 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
                         setReplyingTo(null);
                         setDraft('');
                       }}
-                      className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                      className="mr-1 rounded-full p-2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                      title="Cancel"
                     >
-                      Cancel
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   )}
-                  <button type="submit" disabled={saving || !draft.trim()} className="btn-primary flex h-12 min-w-[48px] items-center justify-center gap-2 rounded-full px-5 text-sm">
-                    {saving ? <><LoadingSpinner size="sm" /> Sending</> : editingId ? 'Save' : 'Send'}
+                  <button
+                    type="submit"
+                    disabled={saving || !draft.trim()}
+                    className="btn-primary flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full p-0 shadow-md disabled:opacity-30"
+                  >
+                    {saving ? (
+                      <LoadingSpinner size="sm" />
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                      </svg>
+                    )}
                   </button>
                 </div>
               </div>
 
-              <div className="mt-2 flex flex-col gap-2 px-2 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between dark:text-slate-400">
+              <div className="mt-1 flex items-center justify-between px-2 text-[10px] sm:text-xs text-slate-400 dark:text-slate-500">
                 <span>
-                  {role === 'admin'
-                    ? 'Messages appear as Admin.'
-                    : role === 'teacher'
-                      ? `Messages appear as ${profile?.full_name || 'Teacher'}.`
-                      : 'Your messages appear as You.'}
+                  {role === 'admin' ? 'Admin' : role === 'teacher' ? (profile?.full_name || 'Teacher') : 'You'}
                 </span>
                 <span>{draft.trim().length}/800</span>
               </div>
@@ -511,22 +599,21 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
         </section>
 
         <aside className="hidden xl:flex xl:flex-col xl:gap-4">
-          <div className="chat-side-rail rounded-[28px] border border-white/70 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:shadow-[0_18px_40px_rgba(2,6,23,0.3)]">
-            <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Chat details</p>
-            <div className="mt-4 space-y-4 text-sm leading-7 text-gray-600 dark:text-slate-300">
-              <p>This room behaves like a shared messenger thread, not a notice board. Use Reply to keep responses attached to the right message.</p>
-              <p>Messages older than {retentionDays} days are removed automatically to keep the room current.</p>
-              <p>{role === 'student' ? 'You can edit or delete only your own messages.' : role === 'teacher' ? 'You can switch between grades and reply as a teacher.' : 'You can switch grades, post as Admin, and moderate messages.'}</p>
-            </div>
+          <div className="chat-side-rail rounded-[28px] border border-white/70 p-4 shadow-[0_18px_40px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:shadow-[0_18px_40px_rgba(2,6,23,0.3)]">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-semibold">💡 Tips</p>
+            <ul className="mt-3 space-y-2.5 text-[13px] leading-5 text-gray-600 dark:text-slate-300">
+              <li className="flex gap-2"><span>↩️</span> Swipe right on a message or hover to reply</li>
+              <li className="flex gap-2"><span>😊</span> React with emojis — hover any message</li>
+              <li className="flex gap-2"><span>⏎</span> Press Enter to send, Shift+Enter for new line</li>
+              <li className="flex gap-2"><span>🕐</span> Messages older than {retentionDays} days auto-delete</li>
+            </ul>
           </div>
 
-          <div className="chat-side-rail rounded-[28px] border border-white/70 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:shadow-[0_18px_40px_rgba(2,6,23,0.3)]">
-            <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Quick tips</p>
-            <ul className="mt-4 space-y-3 text-sm leading-6 text-gray-600 dark:text-slate-300">
-              <li>Tap a reply preview to jump back to the original message.</li>
-              <li>Consecutive messages from the same sender are grouped like a real chat thread.</li>
-              <li>On mobile, the side rail disappears so the chat fills the screen.</li>
-            </ul>
+          <div className="chat-side-rail rounded-[28px] border border-white/70 p-4 shadow-[0_18px_40px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:shadow-[0_18px_40px_rgba(2,6,23,0.3)]">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-semibold">👤 Your role</p>
+            <p className="mt-2 text-[13px] leading-5 text-gray-600 dark:text-slate-300">
+              {role === 'student' ? 'You can edit/delete your own messages.' : role === 'teacher' ? 'Switch between grades and reply as teacher.' : 'Full moderation: post as Admin, delete any message.'}
+            </p>
           </div>
         </aside>
       </div>

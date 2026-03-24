@@ -126,7 +126,7 @@ export interface Announcement {
   id: string;
   title: string;
   body: string | null;
-  stream_id: string;
+  stream_id: string | null;
   created_by: string;
   created_at: string;
   stream?: Stream;
