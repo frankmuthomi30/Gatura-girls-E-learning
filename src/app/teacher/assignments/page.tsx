@@ -9,15 +9,29 @@ import { StreamBadge } from '@/components/StreamBadge';
 import type { Assignment, Subject, Stream, StreamName, AssignmentMode } from '@/lib/types';
 import { STREAM_COLORS } from '@/lib/types';
 
-const MODE_LABELS: Record<AssignmentMode, { label: string; icon: string; desc: string }> = {
-  mcq:         { label: 'Multiple Choice', icon: '🔘', desc: 'Auto-graded MCQ questions' },
-  theory:      { label: 'Theory / Short Answer', icon: '📝', desc: 'Open-ended text responses' },
-  mixed:       { label: 'Mixed', icon: '🔀', desc: 'Combine MCQ + theory questions' },
-  practical:   { label: 'Practical Task', icon: '🔧', desc: 'Step-by-step instructions' },
-  exam:        { label: 'Quick Exam (Timed)', icon: '⏱️', desc: 'Timed test with auto-submit' },
-  file_upload: { label: 'File Upload', icon: '📎', desc: 'Students upload photos/files' },
+const MODE_LABELS: Record<AssignmentMode, { label: string; icon: string; desc: string; steps: string[]; tip: string }> = {
+  mcq:         { label: 'Multiple Choice', icon: '🔘', desc: 'Auto-graded MCQ questions',
+    steps: ['Fill in details', 'Add MCQ questions', 'Publish to students'],
+    tip: 'Students pick from A/B/C/D options. Graded automatically.' },
+  theory:      { label: 'Theory / Short Answer', icon: '📝', desc: 'Open-ended text responses',
+    steps: ['Fill in details', 'Add theory questions', 'Publish to students'],
+    tip: 'Students type text answers. You grade manually.' },
+  mixed:       { label: 'Mixed (MCQ + Theory)', icon: '🔀', desc: 'Combine MCQ + theory questions',
+    steps: ['Fill in details', 'Add mixed questions', 'Publish to students'],
+    tip: 'Combine auto-graded MCQs with written answers in one quiz.' },
+  practical:   { label: 'Practical Task', icon: '🔧', desc: 'Step-by-step instructions',
+    steps: ['Fill in details & instructions', 'Published immediately'],
+    tip: 'Provide instructions. Students upload their work as files.' },
+  exam:        { label: 'Timed Exam', icon: '⏱️', desc: 'Timed test — you control when it goes live',
+    steps: ['Fill in details', 'Add questions', 'Start Exam LIVE when ready'],
+    tip: 'Students have a countdown timer. You decide when the exam starts.' },
+  file_upload: { label: 'File Upload', icon: '📎', desc: 'Students upload photos/files',
+    steps: ['Fill in details', 'Published immediately'],
+    tip: 'Simple — students upload a file (PDF, image, etc.) by the due date.' },
 };
 
+const QUESTION_MODES: AssignmentMode[] = ['mcq', 'theory', 'mixed', 'exam'];
+const SIMPLE_MODES: AssignmentMode[] = ['practical', 'file_upload'];
 const CREATION_MODES: AssignmentMode[] = ['mcq', 'theory', 'mixed', 'practical', 'exam', 'file_upload'];
 
 export default function TeacherAssignments() {
@@ -236,9 +250,12 @@ export default function TeacherAssignments() {
 
           {/* Mode Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Assignment Mode *</label>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-              {CREATION_MODES.map((mode) => {
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Assignment Type *</label>
+
+            {/* Question-based modes */}
+            <p className="text-xs text-gray-500 mb-1.5 font-medium uppercase tracking-wide">Quiz / Exam — requires adding questions</p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-3">
+              {QUESTION_MODES.map((mode) => {
                 const m = MODE_LABELS[mode];
                 const selected = form.mode === mode;
                 return (
@@ -247,12 +264,12 @@ export default function TeacherAssignments() {
                     type="button"
                     onClick={() => handleModeSelect(mode)}
                     className={`p-3 rounded-lg border-2 text-left transition-all ${
-                      selected ? 'border-current shadow-sm' : 'border-gray-200 hover:border-gray-300'
+                      selected ? 'border-current shadow-sm' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
                     }`}
                     style={selected ? { borderColor: 'rgb(var(--color-primary))', backgroundColor: 'var(--color-primary-50)' } : {}}
                   >
                     <span className="text-xl">{m.icon}</span>
-                    <p className={`text-sm font-medium mt-1 ${selected ? '' : 'text-gray-700'}`}
+                    <p className={`text-sm font-medium mt-1 ${selected ? '' : 'text-gray-700 dark:text-gray-300'}`}
                        style={selected ? { color: 'rgb(var(--color-primary))' } : {}}>
                       {m.label}
                     </p>
@@ -261,6 +278,58 @@ export default function TeacherAssignments() {
                 );
               })}
             </div>
+
+            {/* Simple modes */}
+            <p className="text-xs text-gray-500 mb-1.5 font-medium uppercase tracking-wide">Simple — no questions needed</p>
+            <div className="grid grid-cols-2 gap-2">
+              {SIMPLE_MODES.map((mode) => {
+                const m = MODE_LABELS[mode];
+                const selected = form.mode === mode;
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => handleModeSelect(mode)}
+                    className={`p-3 rounded-lg border-2 text-left transition-all ${
+                      selected ? 'border-current shadow-sm' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
+                    }`}
+                    style={selected ? { borderColor: 'rgb(var(--color-primary))', backgroundColor: 'var(--color-primary-50)' } : {}}
+                  >
+                    <span className="text-xl">{m.icon}</span>
+                    <p className={`text-sm font-medium mt-1 ${selected ? '' : 'text-gray-700 dark:text-gray-300'}`}
+                       style={selected ? { color: 'rgb(var(--color-primary))' } : {}}>
+                      {m.label}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">{m.desc}</p>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Workflow preview for selected mode */}
+            {form.mode && (
+              <div className="mt-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30">
+                <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1.5">
+                  How {MODE_LABELS[form.mode].label} works:
+                </p>
+                <div className="flex items-center gap-1 flex-wrap mb-2">
+                  {MODE_LABELS[form.mode].steps.map((step, i) => (
+                    <span key={i} className="flex items-center gap-1">
+                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-200 dark:bg-blue-500/30 text-blue-800 dark:text-blue-200 text-[10px] font-bold flex-shrink-0">
+                        {i + 1}
+                      </span>
+                      <span className="text-xs text-blue-700 dark:text-blue-300">{step}</span>
+                      {i < MODE_LABELS[form.mode].steps.length - 1 && (
+                        <span className="text-blue-400 mx-0.5">→</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-xs text-blue-600 dark:text-blue-400">
+                  💡 {MODE_LABELS[form.mode].tip}
+                </p>
+              </div>
+            )}
           </div>
 
           <div>
@@ -368,16 +437,19 @@ export default function TeacherAssignments() {
           <button type="submit" disabled={saving} className="btn-primary w-full flex items-center justify-center gap-2">
             {saving ? (
               <><LoadingSpinner size="sm" /> Creating...</>
-            ) : ['mcq', 'theory', 'mixed', 'exam'].includes(form.mode) ? (
-              'Create & Add Questions →'
+            ) : form.mode === 'exam' ? (
+              'Create Exam & Add Questions →'
+            ) : ['mcq', 'theory', 'mixed'].includes(form.mode) ? (
+              'Create Quiz & Add Questions →'
             ) : (
-              'Create Assignment'
+              'Create & Publish Assignment'
             )}
           </button>
 
           {['mcq', 'theory', 'mixed', 'exam'].includes(form.mode) && (
-            <p className="text-xs text-gray-500 text-center">
-              After creating, you&apos;ll be taken to the question builder to add questions.
+            <p className="text-xs text-amber-600 dark:text-amber-400 text-center bg-amber-50 dark:bg-amber-500/10 rounded-lg px-3 py-2">
+              ⚠️ {form.mode === 'exam' ? 'Exam' : 'Quiz'} will be saved as <strong>Draft</strong> first.
+              You&apos;ll add questions on the next page, then {form.mode === 'exam' ? 'start it live' : 'publish'} when ready.
             </p>
           )}
         </form>
@@ -447,7 +519,11 @@ export default function TeacherAssignments() {
                       )}
                     </div>
                     {isDraft && needsQuestions && (
-                      <p className="text-xs text-yellow-600 mt-1 font-medium dark:text-yellow-300">⚠️ Add questions to publish</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-yellow-700 dark:text-yellow-300 bg-yellow-100 dark:bg-yellow-500/20 px-2.5 py-1 rounded-full">
+                          ⚠️ Draft — tap to add questions & {mode === 'exam' ? 'start live' : 'publish'}
+                        </span>
+                      </div>
                     )}
                   </Link>
                   <div className="flex shrink-0 items-start gap-3">

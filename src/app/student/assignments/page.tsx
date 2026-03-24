@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase';
 import { PageLoading } from '@/components/Loading';
-import type { Assignment, ExamSession } from '@/lib/types';
+import type { Assignment, ExamSession, Submission } from '@/lib/types';
 
 const MODE_LABELS: Record<string, { label: string; icon: string }> = {
   mcq: { label: 'MCQ', icon: '🔘' },
@@ -23,48 +22,22 @@ export default function StudentAssignments() {
 
   useEffect(() => {
     const load = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const response = await fetch('/api/student/assignments', { cache: 'no-store' });
+      if (!response.ok) {
         setLoading(false);
         return;
       }
 
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('stream, academic_year')
-        .eq('id', user.id)
-        .single();
+      const result = await response.json();
+      const assignments = (result.assignments || []) as Assignment[];
+      const subs = (result.submissions || []) as Submission[];
+      const sessions = (result.examSessions || []) as ExamSession[];
 
-      if (!prof) {
-        setLoading(false);
-        return;
-      }
-
-      const { data: assignments } = await supabase
-        .from('assignments')
-        .select('*, subject:subjects(name), stream:streams(name)')
-        .in('status', ['published', 'active'])
-        .order('due_date', { ascending: false });
-
-      setAssignments((assignments || []) as Assignment[]);
-
-      // File-upload submissions
-      const { data: subs } = await supabase
-        .from('submissions')
-        .select('assignment_id')
-        .eq('student_id', user.id);
-
-      setSubmittedIds(new Set((subs || []).map(s => s.assignment_id)));
-
-      // Exam sessions
-      const { data: sessions } = await supabase
-        .from('exam_sessions')
-        .select('*')
-        .eq('student_id', user.id);
+      setAssignments(assignments);
+      setSubmittedIds(new Set(subs.map((s) => s.assignment_id)));
 
       const sessMap: Record<string, ExamSession> = {};
-      (sessions || []).forEach((s: any) => { sessMap[s.assignment_id] = s; });
+      sessions.forEach((s) => { sessMap[s.assignment_id] = s; });
       setExamSessions(sessMap);
 
       setLoading(false);

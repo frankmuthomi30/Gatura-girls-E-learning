@@ -71,18 +71,10 @@ export default function StudentHome() {
       }
       setProfile(prof as Profile);
 
-      // Get assignments visible to this student according to RLS.
-      const { data: assignments } = await supabase
-        .from('assignments')
-        .select('*, subject:subjects(name)')
-        .in('status', ['published', 'active'])
-        .order('due_date', { ascending: true });
-
-      const { data: submissions } = await supabase
-        .from('submissions')
-        .select('*, assignment:assignments(*, subject:subjects(name))')
-        .eq('student_id', user.id)
-        .order('submitted_at', { ascending: false });
+      const assignmentsResponse = await fetch('/api/student/assignments', { cache: 'no-store' });
+      const assignmentsResult = assignmentsResponse.ok ? await assignmentsResponse.json() : null;
+      const assignments = (assignmentsResult?.assignments || []) as Assignment[];
+      const submissions = (assignmentsResult?.submissions || []) as Array<Submission & { assignment: Assignment }>;
 
       // Filter pending (no submission yet, not past due)
       const submittedIds = new Set((submissions || []).map(s => s.assignment_id));

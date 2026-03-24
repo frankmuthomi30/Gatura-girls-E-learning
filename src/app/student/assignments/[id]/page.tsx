@@ -79,47 +79,27 @@ export default function AssignmentDetail() {
 
   useEffect(() => {
     const load = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const response = await fetch(`/api/student/assignments/${assignmentId}`, { cache: 'no-store' });
+      if (!response.ok) {
         setLoading(false);
-        return;
-      }
-
-      const { data: asgn } = await supabase
-        .from('assignments')
-        .select('*, subject:subjects(name), stream:streams(name)')
-        .eq('id', assignmentId)
-        .single();
-
-      if (!asgn) { router.push('/student/assignments'); return; }
-      if (!['published', 'active'].includes(asgn.status || 'published')) {
         router.push('/student/assignments');
         return;
       }
+
+      const result = await response.json();
+      const asgn = result.assignment as Assignment | null;
+
+      if (!asgn) { router.push('/student/assignments'); return; }
       setAssignment(asgn as Assignment);
 
       const mode = asgn.mode || 'file_upload';
 
       if (['mcq', 'theory', 'mixed', 'exam'].includes(mode)) {
-        // Load questions
-        const { data: qs } = await supabase
-          .from('questions')
-          .select('*, options:question_options(id, option_label, option_text)')
-          .eq('assignment_id', assignmentId)
-          .order('order_index');
-
-        let loadedQs = (qs || []) as Question[];
+        let loadedQs = (result.questions || []) as Question[];
         if (asgn.shuffle_questions) loadedQs = shuffleArray(loadedQs);
         setQuestions(loadedQs);
 
-        // Check for existing exam session
-        const { data: sess } = await supabase
-          .from('exam_sessions')
-          .select('*')
-          .eq('assignment_id', assignmentId)
-          .eq('student_id', user.id)
-          .maybeSingle();
+        const sess = result.examSession as ExamSession | null;
 
         if (sess) {
           setExamSession(sess as ExamSession);
@@ -138,15 +118,10 @@ export default function AssignmentDetail() {
             }
           }
 
-          // Load saved answers
-          const { data: savedAnswers } = await supabase
-            .from('student_answers')
-            .select('*')
-            .eq('exam_session_id', sess.id);
-
+          const savedAnswers = result.savedAnswers as StudentAnswer[];
           if (savedAnswers) {
             const ansMap: Record<string, { text: string; optionId: string | null }> = {};
-            savedAnswers.forEach((a: any) => {
+            savedAnswers.forEach((a) => {
               ansMap[a.question_id] = {
                 text: a.answer_text || '',
                 optionId: a.selected_option_id || null,
@@ -156,13 +131,7 @@ export default function AssignmentDetail() {
           }
         }
       } else {
-        // File upload mode — load existing submission
-        const { data: sub } = await supabase
-          .from('submissions')
-          .select('*')
-          .eq('assignment_id', assignmentId)
-          .eq('student_id', user.id)
-          .maybeSingle();
+        const sub = result.submission as Submission | null;
 
         if (sub) {
           setSubmission(sub as Submission);
@@ -277,26 +246,18 @@ export default function AssignmentDetail() {
     setExamSubmitting(true);
 
     try {
+      // Save answers one final time
       await autoSaveAnswers();
 
-      const supabase = createClient();
+      // Submit via server API — scores calculated securely server-side
+      const response = await fetch(`/api/student/assignments/${assignmentId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ examSessionId: examSession.id, autoSubmit }),
+      });
 
-      // Calculate score for MCQ
-      let score = 0;
-      for (const [qId, ans] of Object.entries(answers)) {
-        const q = questions.find(q => q.id === qId);
-        if (q?.question_type === 'mcq' && ans.optionId) {
-          const correct = q.options?.some(o => o.id === ans.optionId && o.is_correct);
-          if (correct) score += q.points;
-        }
-      }
-
-      await supabase.from('exam_sessions').update({
-        status: autoSubmit ? 'timed_out' : 'submitted',
-        ended_at: new Date().toISOString(),
-        score,
-        time_remaining: 0,
-      }).eq('id', examSession.id);
+      const result = await response.json();
+      const score = result.score ?? 0;
 
       if (timerRef.current) clearInterval(timerRef.current);
       if (autoSaveRef.current) clearInterval(autoSaveRef.current);
@@ -335,6 +296,8 @@ export default function AssignmentDetail() {
   const handleFileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(''); setSuccess('');
+    if (isPastDue) { setError('Deadline has passed. You can no longer edit or resubmit this assignment.'); return; }
+    if (isGraded) { setError('This work has already been graded and can no longer be changed.'); return; }
     if (!answerText.trim() && !file) { setError('Please type an answer or upload a photo.'); return; }
 
     setSubmitting(true);
@@ -368,7 +331,7 @@ export default function AssignmentDetail() {
         if (insertError) throw insertError;
       }
 
-      setSuccess('Your work has been submitted successfully!');
+      setSuccess(submission ? 'Submission updated. You can keep editing until the deadline.' : 'Your work has been submitted successfully! You can edit or resubmit until the deadline.');
       const { data: sub } = await supabase.from('submissions').select('*')
         .eq('assignment_id', assignmentId).eq('student_id', user.id).single();
       if (sub) { setSubmission(sub as Submission); if (sub.file_url) await generateSignedUrl(sub.file_url); }
@@ -645,6 +608,12 @@ export default function AssignmentDetail() {
           {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>}
           {success && <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">{success}</div>}
 
+          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            {submission
+              ? 'You can edit or resubmit this work as many times as you want before the deadline. Your latest submission is the one the teacher will see.'
+              : 'You can submit now and still come back to edit or resubmit before the deadline.'}
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Type your answer</label>
             <textarea value={answerText} onChange={(e) => setAnswerText(e.target.value)}
@@ -652,7 +621,7 @@ export default function AssignmentDetail() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Or upload a file (JPEG, PNG, PDF, Word — max 10MB)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Or upload a file (JPEG, PNG, PDF, Word — max 4MB)</label>
             <input type="file" accept="image/jpeg,image/png,application/pdf,.doc,.docx" onChange={handleFileChange}
               className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 min-h-[44px]"
               disabled={submitting} />
@@ -674,14 +643,20 @@ export default function AssignmentDetail() {
           </div>
 
           <button type="submit" disabled={submitting} className="btn-primary w-full flex items-center justify-center gap-2">
-            {submitting ? <><LoadingSpinner size="sm" /> Submitting...</> : submission ? 'Update Submission' : 'Submit'}
+            {submitting ? <><LoadingSpinner size="sm" /> Submitting...</> : submission ? 'Save Changes / Resubmit' : 'Submit'}
           </button>
         </form>
       )}
 
       {submission && !isGraded && !canSubmitFile && (
         <div className="card bg-yellow-50 border-yellow-200">
-          <p className="text-yellow-700 text-sm font-medium">You submitted this assignment. The deadline has passed — waiting for grading.</p>
+          <p className="text-yellow-700 text-sm font-medium">You submitted this assignment, but the deadline has passed. Editing and resubmission are now locked while you wait for grading.</p>
+        </div>
+      )}
+
+      {!submission && isPastDue && (
+        <div className="card bg-red-50 border-red-200">
+          <p className="text-red-700 text-sm font-medium">Deadline passed. Submission is closed and you can no longer submit this assignment.</p>
         </div>
       )}
 

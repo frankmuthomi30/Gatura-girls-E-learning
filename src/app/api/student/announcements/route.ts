@@ -13,7 +13,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { data: profile } = await supabase
+  // Use service-role client to bypass RLS for data queries
+  // (auth is already verified above)
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const dbClient = serviceKey
+    ? createClient(getSupabaseUrl(), serviceKey)
+    : supabase;
+
+  const { data: profile } = await dbClient
     .from('profiles')
     .select('role, stream, academic_year')
     .eq('id', user.id)
@@ -22,13 +29,6 @@ export async function GET(request: NextRequest) {
   if (!profile || profile.role !== 'student') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
-
-  // Use service-role client to bypass RLS for the data query
-  // (auth is already verified above)
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  const dbClient = serviceKey
-    ? createClient(getSupabaseUrl(), serviceKey)
-    : supabase;
 
   const limitParam = request.nextUrl.searchParams.get('limit');
   const parsedLimit = limitParam ? parseInt(limitParam, 10) : null;

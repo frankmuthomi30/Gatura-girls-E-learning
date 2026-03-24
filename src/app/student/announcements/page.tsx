@@ -1,10 +1,48 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnnouncementContent } from '@/components/AnnouncementContent';
 import { PageLoading } from '@/components/Loading';
 import { StreamBadge } from '@/components/StreamBadge';
 import type { Announcement, StreamName } from '@/lib/types';
+
+const COLLAPSE_HEIGHT = 160; // px — roughly 6-7 lines on mobile
+
+function CollapsibleBody({ body }: { body: string | null | undefined }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [needsCollapse, setNeedsCollapse] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (ref.current && ref.current.scrollHeight > COLLAPSE_HEIGHT + 40) {
+      setNeedsCollapse(true);
+    }
+  }, [body]);
+
+  return (
+    <div className="relative">
+      <div
+        ref={ref}
+        className={`overflow-hidden transition-[max-height] duration-300 ease-in-out ${!expanded && needsCollapse ? '' : ''}`}
+        style={!expanded && needsCollapse ? { maxHeight: COLLAPSE_HEIGHT } : undefined}
+      >
+        <AnnouncementContent body={body} className="mt-5" />
+      </div>
+      {needsCollapse && !expanded && (
+        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white dark:from-[hsl(var(--card))] to-transparent pointer-events-none" />
+      )}
+      {needsCollapse && (
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="mt-2 text-sm font-semibold text-primary hover:underline"
+        >
+          {expanded ? 'Show less ▲' : 'Read more ▼'}
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function StudentAnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -66,7 +104,7 @@ export default function StudentAnnouncementsPage() {
                 <StreamBadge stream={(announcement.stream as { name?: StreamName } | undefined)?.name ?? null} />
               </div>
 
-              <AnnouncementContent body={announcement.body} className="mt-5" />
+              <CollapsibleBody body={announcement.body} />
 
               <p className="mt-6 text-xs uppercase tracking-[0.18em] text-gray-400">
                 Posted {new Date(announcement.created_at).toLocaleString('en-KE')}

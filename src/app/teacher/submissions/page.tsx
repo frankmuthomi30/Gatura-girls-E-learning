@@ -68,20 +68,24 @@ export default function TeacherSubmissions() {
 
   useEffect(() => {
     const load = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const response = await fetch(
+        `/api/teacher/submissions${assignmentId ? `?assignment=${assignmentId}` : ''}`,
+        { cache: 'no-store' }
+      );
 
-      const { data: asgns } = await supabase
-        .from('assignments')
-        .select('*, subject:subjects(name), stream:streams(name)')
-        .eq('created_by', user.id)
-        .order('created_at', { ascending: false });
+      if (!response.ok) {
+        setAssignments([]);
+        setLoading(false);
+        return;
+      }
 
-      setAssignments((asgns || []) as Assignment[]);
+      const result = await response.json();
+      setAssignments((result.assignments || []) as Assignment[]);
 
       if (assignmentId) {
-        await loadSubmissions(assignmentId);
+        setSubmissions((result.submissions || []) as (Submission & { student: Profile })[]);
+        setAllStudents((result.students || []) as Profile[]);
+        await generateSignedUrls((result.submissions || []) as (Submission & { student: Profile })[]);
       }
       setLoading(false);
     };
@@ -92,45 +96,21 @@ export default function TeacherSubmissions() {
   const loadSubmissions = async (aId: string) => {
     setLoadingSubs(true);
     setExpandedId(null);
-    const supabase = createClient();
+    const response = await fetch(`/api/teacher/submissions?assignment=${aId}`, { cache: 'no-store' });
+    if (!response.ok) {
+      setSubmissions([]);
+      setAllStudents([]);
+      setLoadingSubs(false);
+      return;
+    }
 
-    const { data: subs } = await supabase
-      .from('submissions')
-      .select('*, student:profiles(id, full_name, admission_number, stream)')
-      .eq('assignment_id', aId)
-      .order('submitted_at', { ascending: true });
-
-    const typedSubs = (subs || []) as (Submission & { student: Profile })[];
+    const result = await response.json();
+    const typedSubs = (result.submissions || []) as (Submission & { student: Profile })[];
     setSubmissions(typedSubs);
+    setAllStudents((result.students || []) as Profile[]);
 
     // Generate signed URLs for files
     await generateSignedUrls(typedSubs);
-
-    // Get assignment to find stream
-    const { data: asgn } = await supabase
-      .from('assignments')
-      .select('stream_id')
-      .eq('id', aId)
-      .single();
-
-    if (asgn) {
-      const { data: streamData } = await supabase
-        .from('streams')
-        .select('name')
-        .eq('id', asgn.stream_id)
-        .single();
-
-      if (streamData) {
-        const { data: students } = await supabase
-          .from('profiles')
-          .select('id, full_name, admission_number, stream')
-          .eq('role', 'student')
-          .eq('stream', streamData.name)
-          .order('full_name');
-
-        setAllStudents((students || []) as Profile[]);
-      }
-    }
 
     setLoadingSubs(false);
   };
@@ -150,17 +130,17 @@ export default function TeacherSubmissions() {
     if (!gradeInput.trim()) return;
     setSavingGrade(true);
 
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('submissions')
-      .update({
+    const response = await fetch('/api/teacher/submissions', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        submissionId,
         grade: gradeInput.trim(),
-        feedback: feedbackInput.trim() || null,
-        graded_at: new Date().toISOString(),
-      })
-      .eq('id', submissionId);
+        feedback: feedbackInput.trim(),
+      }),
+    });
 
-    if (!error) {
+    if (response.ok) {
       setGradingId(null);
       setGradeInput('');
       setFeedbackInput('');

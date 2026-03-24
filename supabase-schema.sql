@@ -177,8 +177,11 @@ CREATE POLICY "Students read assignments for own stream"
   ON assignments FOR SELECT
   USING (
     get_user_role() = 'student'
-    AND stream_id IN (
-      SELECT s.id FROM streams s WHERE s.name = get_user_stream()
+    AND (
+      stream_id IS NULL
+      OR stream_id IN (
+        SELECT s.id FROM streams s WHERE s.name = get_user_stream()
+      )
     )
   );
 
@@ -212,16 +215,27 @@ CREATE POLICY "Students read own submissions"
   ON submissions FOR SELECT
   USING (get_user_role() = 'student' AND student_id = auth.uid());
 
-CREATE POLICY "Students create own submissions"
+CREATE POLICY "Students create own submissions before deadline"
   ON submissions FOR INSERT
-  WITH CHECK (get_user_role() = 'student' AND student_id = auth.uid());
+  WITH CHECK (
+    get_user_role() = 'student'
+    AND student_id = auth.uid()
+    AND assignment_id IN (
+      SELECT id FROM assignments
+      WHERE due_date >= NOW()
+    )
+  );
 
-CREATE POLICY "Students update own submissions before grading"
+CREATE POLICY "Students update own submissions before deadline and grading"
   ON submissions FOR UPDATE
   USING (
     get_user_role() = 'student'
     AND student_id = auth.uid()
     AND grade IS NULL
+    AND assignment_id IN (
+      SELECT id FROM assignments
+      WHERE due_date >= NOW()
+    )
   )
   WITH CHECK (student_id = auth.uid());
 

@@ -52,16 +52,24 @@ export default function TeacherDashboard() {
         .select('*, stream:streams(name)')
         .eq('teacher_id', user.id);
 
-      setSubjects((subs || []) as Subject[]);
+      const assignedSubjects = (subs || []) as Subject[];
+      setSubjects(assignedSubjects);
 
-      // Get teacher's assignments
-      const { data: assignments } = await supabase
-        .from('assignments')
-        .select('*, subject:subjects(name), stream:streams(name)')
-        .eq('created_by', user.id)
-        .order('created_at', { ascending: false });
+      const subjectIds = assignedSubjects.map((subject) => subject.id);
 
-      const allAssignments = (assignments || []) as Assignment[];
+      let assignments: Assignment[] = [];
+
+      if (subjectIds.length > 0) {
+        const { data: assignmentRows } = await supabase
+          .from('assignments')
+          .select('*, subject:subjects(name), stream:streams(name)')
+          .in('subject_id', subjectIds)
+          .order('created_at', { ascending: false });
+
+        assignments = (assignmentRows || []) as Assignment[];
+      }
+
+      const allAssignments = assignments;
       const assignmentIds = allAssignments.map((assignment) => assignment.id);
       setRecentAssignments(allAssignments.slice(0, 5));
 

@@ -274,12 +274,68 @@ export default function AssignmentQuestionBuilder() {
     : assignment.mode === 'theory' ? ['short_answer', 'structured']
     : ['mcq', 'short_answer', 'structured'];
 
+  const modeLabel =
+    assignment.mode === 'mcq' ? 'MCQ Quiz' :
+    assignment.mode === 'theory' ? 'Theory Quiz' :
+    assignment.mode === 'mixed' ? 'Mixed Quiz' :
+    assignment.mode === 'exam' ? 'Timed Exam' : 'Quiz';
+
+  // Step progress
+  const stepsDone = {
+    created: true,
+    hasQuestions: questions.length > 0,
+    published: assignment.status === 'published' || assignment.status === 'active',
+    live: assignment.status === 'active',
+  };
+
   return (
     <div className="space-y-6 max-w-4xl">
       <button onClick={() => router.push('/teacher/assignments')}
-        className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+        className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1">
         ← Back to Assignments
       </button>
+
+      {/* Step Progress Bar */}
+      <div className="card">
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+          {modeLabel} — Setup Progress
+        </p>
+        <div className="flex items-center gap-1">
+          {/* Step 1: Created */}
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white text-xs font-bold flex-shrink-0">✓</span>
+            <span className="text-xs font-medium text-green-700 dark:text-green-400 hidden sm:inline">Created</span>
+          </div>
+          <div className="flex-1 h-0.5 mx-1 bg-green-300 dark:bg-green-600 rounded" />
+
+          {/* Step 2: Questions Added */}
+          <div className="flex items-center gap-1.5">
+            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold flex-shrink-0 ${
+              stepsDone.hasQuestions ? 'bg-green-500 text-white' : 'bg-blue-500 text-white animate-pulse'
+            }`}>
+              {stepsDone.hasQuestions ? '✓' : '2'}
+            </span>
+            <span className={`text-xs font-medium hidden sm:inline ${
+              stepsDone.hasQuestions ? 'text-green-700 dark:text-green-400' : 'text-blue-700 dark:text-blue-400'
+            }`}>Add Questions</span>
+          </div>
+          <div className={`flex-1 h-0.5 mx-1 rounded ${stepsDone.hasQuestions ? 'bg-green-300 dark:bg-green-600' : 'bg-gray-200 dark:bg-gray-600'}`} />
+
+          {/* Step 3: Publish / Go Live */}
+          <div className="flex items-center gap-1.5">
+            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold flex-shrink-0 ${
+              stepsDone.published ? 'bg-green-500 text-white' :
+              stepsDone.hasQuestions ? 'bg-blue-500 text-white' : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
+            }`}>
+              {stepsDone.published ? '✓' : '3'}
+            </span>
+            <span className={`text-xs font-medium hidden sm:inline ${
+              stepsDone.published ? 'text-green-700 dark:text-green-400' :
+              stepsDone.hasQuestions ? 'text-blue-700 dark:text-blue-400' : 'text-gray-400'
+            }`}>{isExam ? 'Start Live' : 'Publish'}</span>
+          </div>
+        </div>
+      </div>
 
       {/* Header */}
       <div className="card">
@@ -444,51 +500,105 @@ export default function AssignmentQuestionBuilder() {
       ))}
 
       {/* Add question buttons */}
-      <div className="card border-dashed border-2 border-gray-300">
-        <p className="text-sm font-medium text-gray-700 mb-3">Add Question</p>
-        <div className="flex flex-wrap gap-2">
-          {allowedTypes.includes('mcq') && (
-            <button onClick={() => addQuestion('mcq')}
-              className="btn-primary text-sm py-2 px-4">🔘 MCQ</button>
-          )}
-          {allowedTypes.includes('short_answer') && (
-            <button onClick={() => addQuestion('short_answer')}
-              className="btn-primary text-sm py-2 px-4">📝 Short Answer</button>
-          )}
-          {allowedTypes.includes('structured') && (
-            <button onClick={() => addQuestion('structured')}
-              className="btn-primary text-sm py-2 px-4">📄 Structured</button>
-          )}
-        </div>
+      <div className="card border-dashed border-2 border-gray-300 dark:border-gray-600">
+        {questions.length === 0 ? (
+          <>
+            <div className="text-center py-4">
+              <p className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                {assignment.mode === 'mcq' ? '🔘 Add Your MCQ Questions' :
+                 assignment.mode === 'theory' ? '📝 Add Your Theory Questions' :
+                 assignment.mode === 'mixed' ? '🔀 Add Your Questions (MCQ + Theory)' :
+                 '⏱️ Add Your Exam Questions'}
+              </p>
+              <p className="text-sm text-gray-500 mb-4 max-w-md mx-auto">
+                {assignment.mode === 'mcq'
+                  ? 'Each question has 4 options (A-D). Select the correct answer. Auto-graded for students.'
+                  : assignment.mode === 'theory'
+                  ? 'Add Short Answer or Structured questions. You can include a marking scheme for reference.'
+                  : assignment.mode === 'mixed'
+                  ? 'Mix MCQ and theory questions in any order. MCQs auto-grade, theory needs manual grading.'
+                  : 'Add questions for the timed exam. You control when students can start.'}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {allowedTypes.includes('mcq') && (
+                <button onClick={() => addQuestion('mcq')}
+                  className="btn-primary text-sm py-2.5 px-5">🔘 Add MCQ Question</button>
+              )}
+              {allowedTypes.includes('short_answer') && (
+                <button onClick={() => addQuestion('short_answer')}
+                  className="btn-primary text-sm py-2.5 px-5">📝 Add Short Answer</button>
+              )}
+              {allowedTypes.includes('structured') && (
+                <button onClick={() => addQuestion('structured')}
+                  className="btn-primary text-sm py-2.5 px-5">📄 Add Structured Question</button>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Add Another Question</p>
+            <div className="flex flex-wrap gap-2">
+              {allowedTypes.includes('mcq') && (
+                <button onClick={() => addQuestion('mcq')}
+                  className="btn-primary text-sm py-2 px-4">🔘 MCQ</button>
+              )}
+              {allowedTypes.includes('short_answer') && (
+                <button onClick={() => addQuestion('short_answer')}
+                  className="btn-primary text-sm py-2 px-4">📝 Short Answer</button>
+              )}
+              {allowedTypes.includes('structured') && (
+                <button onClick={() => addQuestion('structured')}
+                  className="btn-primary text-sm py-2 px-4">📄 Structured</button>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Action bar */}
       {questions.length > 0 && (
-        <div className="card sticky bottom-4 shadow-lg border-2 border-gray-200">
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-sm text-gray-600">
-              {questions.length} question{questions.length !== 1 ? 's' : ''} · {totalPoints} points
+        <div className="card sticky bottom-4 shadow-lg border-2 border-gray-200 dark:border-gray-600">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {questions.length} question{questions.length !== 1 ? 's' : ''} · {totalPoints} points
+              </div>
+              {assignment.status === 'draft' && (
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {isExam
+                    ? 'Save your questions, then start the exam live when ready.'
+                    : 'Save your questions, then publish so students can see the quiz.'}
+                </p>
+              )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <button onClick={saveAllQuestions} disabled={saving}
                 className="btn-secondary text-sm py-2 px-4 flex items-center gap-2">
                 {saving ? <><LoadingSpinner size="sm" /> Saving...</> : '💾 Save Draft'}
               </button>
               {assignment.status === 'draft' && !isExam && (
                 <button onClick={publishAssignment} disabled={publishing}
-                  className="btn-primary text-sm py-2 px-4 flex items-center gap-2">
-                  {publishing ? <><LoadingSpinner size="sm" /> Publishing...</> : '📢 Publish'}
+                  className="btn-primary text-sm py-2 px-4 flex items-center gap-2"
+                  title="Students will be able to see and take this quiz">
+                  {publishing ? <><LoadingSpinner size="sm" /> Publishing...</> : '📢 Publish to Students'}
                 </button>
               )}
               {isExam && assignment.status !== 'active' && (
                 <button onClick={startExam} disabled={publishing}
-                  className="text-white font-semibold text-sm py-2 px-4 rounded-lg bg-red-600 hover:bg-red-700 flex items-center gap-2">
+                  className="text-white font-semibold text-sm py-2 px-4 rounded-lg bg-red-600 hover:bg-red-700 flex items-center gap-2"
+                  title="Students will immediately be able to start the timed exam">
                   {publishing ? <><LoadingSpinner size="sm" /> Starting...</> : '🚀 Start Exam LIVE'}
                 </button>
               )}
+              {assignment.status === 'published' && !isExam && (
+                <span className="text-sm font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-500/10 px-3 py-2 rounded-lg">
+                  ✅ Published — students can see this quiz
+                </span>
+              )}
               {assignment.status === 'active' && (
-                <span className="text-sm font-medium text-green-700 bg-green-50 px-3 py-2 rounded-lg">
-                  🟢 Exam is LIVE
+                <span className="text-sm font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-500/10 px-3 py-2 rounded-lg">
+                  🟢 Exam is LIVE — students are taking it
                 </span>
               )}
             </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AnnouncementContent } from '@/components/AnnouncementContent';
+import { ConfirmDialog, useConfirmDialog } from '@/components/ConfirmDialog';
 import { createClient } from '@/lib/supabase';
 import { PageLoading, LoadingSpinner } from '@/components/Loading';
 import { RichTextEditor } from '@/components/RichTextEditor';
@@ -16,6 +17,8 @@ export default function TeacherAnnouncements() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { confirm, dialogProps } = useConfirmDialog();
 
   const [form, setForm] = useState({
     title: '',
@@ -98,6 +101,40 @@ export default function TeacherAnnouncements() {
     setEditingId(announcement.id);
     setError('');
     setShowForm(true);
+  };
+
+  const handleDelete = async (announcement: Announcement) => {
+    const confirmed = await confirm(
+      'Delete announcement',
+      `Are you sure you want to delete "${announcement.title}"? This cannot be undone.`,
+      'Delete'
+    );
+    if (!confirmed) return;
+
+    setDeletingId(announcement.id);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error: deleteError } = await supabase
+        .from('announcements')
+        .delete()
+        .eq('id', announcement.id)
+        .eq('created_by', user.id);
+
+      if (deleteError) throw deleteError;
+
+      if (editingId === announcement.id) {
+        resetForm();
+        setShowForm(false);
+      }
+      await loadData();
+    } catch {
+      setError('Failed to delete announcement.');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   if (loading) return <PageLoading message="Loading announcements" description="Bringing in your latest notices and stream targets." />;
@@ -211,14 +248,25 @@ export default function TeacherAnnouncements() {
                 <p className="text-xs text-gray-400">
                 {new Date(ann.created_at).toLocaleString('en-KE')}
                 </p>
-                <button onClick={() => startEdit(ann)} className="btn-secondary text-sm py-2 px-4">
-                  Edit announcement
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={() => startEdit(ann)} className="btn-secondary text-sm py-2 px-4">
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => void handleDelete(ann)}
+                    disabled={deletingId === ann.id}
+                    className="text-sm py-2 px-4 rounded-xl font-semibold border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                  >
+                    {deletingId === ann.id ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
               </div>
             </article>
           ))}
         </div>
       )}
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   );
 }
