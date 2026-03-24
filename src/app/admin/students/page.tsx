@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { createClient } from '@/lib/supabase';
 import { PageLoading, LoadingSpinner } from '@/components/Loading';
 import { StreamBadge } from '@/components/StreamBadge';
 import { ConfirmDialog, useConfirmDialog } from '@/components/ConfirmDialog';
@@ -33,14 +32,13 @@ export default function AdminStudents() {
   }, []);
 
   const loadStudents = async () => {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('role', 'student')
-      .order('full_name');
-
-    setStudents((data || []) as Profile[]);
+    try {
+      const response = await fetch('/api/admin/students', { cache: 'no-store' });
+      if (response.ok) {
+        const result = await response.json();
+        setStudents((result.students || []) as Profile[]);
+      }
+    } catch { /* silent */ }
     setLoading(false);
   };
 

@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { PageLoading } from '@/components/Loading';
-import { createClient } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {
@@ -14,18 +13,13 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     const load = async () => {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) { router.push('/login'); return; }
-
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-
-      if (!data || data.role !== 'teacher') { router.push('/login'); return; }
-      setProfile(data as Profile);
+      try {
+        const response = await fetch('/api/auth/profile', { cache: 'no-store' });
+        if (!response.ok) { router.push('/login'); return; }
+        const result = await response.json();
+        if (!result.profile || result.profile.role !== 'teacher') { router.push('/login'); return; }
+        setProfile(result.profile as Profile);
+      } catch { router.push('/login'); return; }
       setLoading(false);
     };
     load();

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AnnouncementContent } from '@/components/AnnouncementContent';
-import { createClient } from '@/lib/supabase';
 import { StreamBadge } from '@/components/StreamBadge';
 import { PageLoading } from '@/components/Loading';
 import type { Profile, Assignment, Submission, Announcement, StreamName } from '@/lib/types';
@@ -52,18 +51,14 @@ export default function StudentHome() {
 
   useEffect(() => {
     const load = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Load profile via API
+      const profileResponse = await fetch('/api/auth/profile', { cache: 'no-store' });
+      if (!profileResponse.ok) {
         setLoading(false);
         return;
       }
-
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      const profileResult = await profileResponse.json();
+      const prof = profileResult.profile;
 
       if (!prof) {
         setLoading(false);

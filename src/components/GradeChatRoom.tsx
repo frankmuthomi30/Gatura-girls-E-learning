@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { createClient } from '@/lib/supabase';
 import { LoadingSpinner, PageLoading } from '@/components/Loading';
 import type { GradeChatMessage, Profile, UserRole } from '@/lib/types';
 
@@ -92,24 +91,17 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
     }
 
     try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
       let nextProfile = profile;
-      if (user && !nextProfile) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        if (data) {
-          nextProfile = data as Profile;
-          setProfile(nextProfile);
-          if (role === 'student' && data.grade) {
-            setSelectedGrade(data.grade);
+      if (!nextProfile) {
+        const profileRes = await fetch('/api/auth/profile', { cache: 'no-store' });
+        if (profileRes.ok) {
+          const profileResult = await profileRes.json();
+          if (profileResult.profile) {
+            nextProfile = profileResult.profile as Profile;
+            setProfile(nextProfile);
+            if (role === 'student' && profileResult.profile.grade) {
+              setSelectedGrade(profileResult.profile.grade);
+            }
           }
         }
       }

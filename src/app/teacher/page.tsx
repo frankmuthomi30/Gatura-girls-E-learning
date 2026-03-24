@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase';
 import { PageLoading } from '@/components/Loading';
 import { StreamBadge } from '@/components/StreamBadge';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -42,79 +41,16 @@ export default function TeacherDashboard() {
 
   useEffect(() => {
     const load = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const response = await fetch('/api/teacher/dashboard', { cache: 'no-store' });
+        if (!response.ok) { setLoading(false); return; }
+        const result = await response.json();
 
-      // Get teacher's subjects
-      const { data: subs } = await supabase
-        .from('subjects')
-        .select('*, stream:streams(name)')
-        .eq('teacher_id', user.id);
-
-      const assignedSubjects = (subs || []) as Subject[];
-      setSubjects(assignedSubjects);
-
-      const subjectIds = assignedSubjects.map((subject) => subject.id);
-
-      let assignments: Assignment[] = [];
-
-      if (subjectIds.length > 0) {
-        const { data: assignmentRows } = await supabase
-          .from('assignments')
-          .select('*, subject:subjects(name), stream:streams(name)')
-          .in('subject_id', subjectIds)
-          .order('created_at', { ascending: false });
-
-        assignments = (assignmentRows || []) as Assignment[];
-      }
-
-      const allAssignments = assignments;
-      const assignmentIds = allAssignments.map((assignment) => assignment.id);
-      setRecentAssignments(allAssignments.slice(0, 5));
-
-      let pendingGrading = 0;
-
-      if (assignmentIds.length > 0) {
-        const { count } = await supabase
-          .from('submissions')
-          .select('id', { count: 'exact', head: true })
-          .is('grade', null)
-          .in('assignment_id', assignmentIds);
-
-        pendingGrading = count || 0;
-
-        const { data: queue } = await supabase
-          .from('submissions')
-          .select('*, assignment:assignments(title, subject:subjects(name)), student:profiles(full_name, admission_number)')
-          .is('grade', null)
-          .in('assignment_id', assignmentIds)
-          .order('submitted_at', { ascending: false })
-          .limit(5);
-
-        setPendingQueue((queue || []) as PendingSubmission[]);
-      } else {
-        setPendingQueue([]);
-      }
-
-      const now = Date.now();
-      const oneWeekFromNow = now + (7 * 24 * 60 * 60 * 1000);
-      const dueThisWeek = allAssignments.filter((assignment) => {
-        const dueTime = new Date(assignment.due_date).getTime();
-        return dueTime >= now && dueTime <= oneWeekFromNow;
-      }).length;
-
-      const activeAssignments = allAssignments.filter(
-        (assignment) => assignment.status === 'published' || assignment.status === 'active'
-      ).length;
-
-      setStats({
-        totalAssignments: allAssignments.length,
-        activeAssignments,
-        pendingGrading,
-        dueThisWeek,
-      });
-
+        setSubjects((result.subjects || []) as Subject[]);
+        setRecentAssignments((result.recentAssignments || []) as Assignment[]);
+        setPendingQueue((result.pendingQueue || []) as PendingSubmission[]);
+        setStats(result.stats || { totalAssignments: 0, activeAssignments: 0, pendingGrading: 0, dueThisWeek: 0 });
+      } catch { /* silent */ }
       setLoading(false);
     };
     load();
