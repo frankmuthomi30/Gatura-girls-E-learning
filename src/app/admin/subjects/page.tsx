@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase';
 import { PageLoading, LoadingSpinner } from '@/components/Loading';
 import { ConfirmDialog, useConfirmDialog } from '@/components/ConfirmDialog';
 import { StreamBadge } from '@/components/StreamBadge';
@@ -32,17 +31,15 @@ export default function AdminSubjects() {
   }, []);
 
   const loadData = async () => {
-    const supabase = createClient();
-
-    const [{ data: subs }, { data: strs }, { data: tchs }] = await Promise.all([
-      supabase.from('subjects').select('*, stream:streams(name), teacher:profiles(full_name)').order('name'),
-      supabase.from('streams').select('*').order('name'),
-      supabase.from('profiles').select('id, full_name, admission_number').eq('role', 'teacher').order('full_name'),
-    ]);
-
-    setSubjects((subs || []) as Subject[]);
-    setStreams((strs || []) as Stream[]);
-    setTeachers((tchs || []) as Profile[]);
+    try {
+      const response = await fetch('/api/admin/subjects', { cache: 'no-store' });
+      if (response.ok) {
+        const result = await response.json();
+        setSubjects((result.subjects || []) as Subject[]);
+        setStreams((result.streams || []) as Stream[]);
+        setTeachers((result.teachers || []) as Profile[]);
+      }
+    } catch { /* silent */ }
     setLoading(false);
   };
 
@@ -57,16 +54,17 @@ export default function AdminSubjects() {
 
     setSaving(true);
     try {
-      const supabase = createClient();
-      const { error: insertError } = await supabase
-        .from('subjects')
-        .insert({
+      const response = await fetch('/api/admin/subjects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           name: form.name.trim(),
           stream_id: form.stream_id || null,
           teacher_id: form.teacher_id || null,
-        });
+        }),
+      });
 
-      if (insertError) throw insertError;
+      if (!response.ok) throw new Error('Failed');
 
       setForm({ name: '', stream_id: '', teacher_id: '' });
       setShowForm(false);
@@ -100,17 +98,18 @@ export default function AdminSubjects() {
 
     setEditSaving(true);
     try {
-      const supabase = createClient();
-      const { error: updateError } = await supabase
-        .from('subjects')
-        .update({
+      const response = await fetch('/api/admin/subjects', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingSubject.id,
           name: editForm.name.trim(),
           stream_id: editForm.stream_id || null,
           teacher_id: editForm.teacher_id || null,
-        })
-        .eq('id', editingSubject.id);
+        }),
+      });
 
-      if (updateError) throw updateError;
+      if (!response.ok) throw new Error('Failed');
 
       setEditingSubject(null);
       await loadData();
@@ -130,26 +129,11 @@ export default function AdminSubjects() {
     if (!confirmed) return;
 
     try {
-      const supabase = createClient();
+      const response = await fetch(`/api/admin/subjects?id=${subject.id}`, {
+        method: 'DELETE',
+      });
 
-      // Delete submissions for assignments of this subject, then assignments, then subject
-      const { data: assignments } = await supabase
-        .from('assignments')
-        .select('id')
-        .eq('subject_id', subject.id);
-
-      if (assignments && assignments.length > 0) {
-        const assignmentIds = assignments.map((a: any) => a.id);
-        await supabase.from('submissions').delete().in('assignment_id', assignmentIds);
-        await supabase.from('assignments').delete().eq('subject_id', subject.id);
-      }
-
-      const { error: deleteError } = await supabase
-        .from('subjects')
-        .delete()
-        .eq('id', subject.id);
-
-      if (deleteError) throw deleteError;
+      if (!response.ok) throw new Error('Failed');
 
       await loadData();
     } catch (err: any) {
@@ -158,11 +142,11 @@ export default function AdminSubjects() {
   };
 
   const handleAssignTeacher = async (subjectId: string, teacherId: string) => {
-    const supabase = createClient();
-    await supabase
-      .from('subjects')
-      .update({ teacher_id: teacherId || null })
-      .eq('id', subjectId);
+    await fetch('/api/admin/subjects', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: subjectId, teacher_id: teacherId || null }),
+    });
     await loadData();
   };
 

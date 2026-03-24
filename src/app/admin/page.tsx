@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase';
 import { PageLoading } from '@/components/Loading';
 
 interface DashboardStats {
@@ -51,50 +50,16 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const load = async () => {
-      const supabase = createClient();
-
-      const [
-        { count: studentCount },
-        { count: teacherCount },
-        { count: assignmentCount },
-        { count: submissionCount },
-        { data: students },
-        { count: activeExamCount },
-        { data: examSessions },
-        storageHealthResponse,
-      ] = await Promise.all([
-        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'student'),
-        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'teacher'),
-        supabase.from('assignments').select('id', { count: 'exact', head: true }),
-        supabase.from('submissions').select('id', { count: 'exact', head: true }),
-        supabase.from('profiles').select('stream').eq('role', 'student'),
-        supabase.from('assignments').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-        supabase.from('exam_sessions').select('status'),
+      const [dashboardResponse, storageHealthResponse] = await Promise.all([
+        fetch('/api/admin/dashboard', { cache: 'no-store' }),
         fetch('/api/admin/storage-health'),
       ]);
 
-      const streamCounts: Record<string, number> = {};
-      (students || []).forEach((s) => {
-        if (s.stream) {
-          streamCounts[s.stream] = (streamCounts[s.stream] || 0) + 1;
-        }
-      });
-
-      setStats({
-        totalStudents: studentCount || 0,
-        totalTeachers: teacherCount || 0,
-        totalAssignments: assignmentCount || 0,
-        totalSubmissions: submissionCount || 0,
-        streamCounts,
-      });
-
-      const sessions = examSessions || [];
-      setExamStats({
-        activeExams: activeExamCount || 0,
-        inProgress: sessions.filter((s: any) => s.status === 'in_progress').length,
-        submitted: sessions.filter((s: any) => s.status === 'submitted').length,
-        timedOut: sessions.filter((s: any) => s.status === 'timed_out').length,
-      });
+      if (dashboardResponse.ok) {
+        const result = await dashboardResponse.json();
+        setStats(result.stats);
+        setExamStats(result.examStats);
+      }
 
       if (storageHealthResponse.ok) {
         const storageResult = await storageHealthResponse.json();

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase';
 import { PageLoading } from '@/components/Loading';
 import { StreamBadge } from '@/components/StreamBadge';
 import type { StreamName } from '@/lib/types';
@@ -22,47 +21,13 @@ export default function AdminReports() {
 
   useEffect(() => {
     const load = async () => {
-      const supabase = createClient();
-
-      const { data: assignments } = await supabase
-        .from('assignments')
-        .select('id, title, subject:subjects(name), stream:streams(id, name)')
-        .order('created_at', { ascending: false });
-
-      const reportData: ReportData[] = [];
-
-      for (const a of assignments || []) {
-        const streamName = (a as any).stream?.name;
-        const streamId = (a as any).stream?.id;
-
-        // Count students in stream
-        const { count: totalStudents } = await supabase
-          .from('profiles')
-          .select('id', { count: 'exact', head: true })
-          .eq('role', 'student')
-          .eq('stream', streamName);
-
-        // Count submissions
-        const { data: subs } = await supabase
-          .from('submissions')
-          .select('grade')
-          .eq('assignment_id', a.id);
-
-        const submitted = subs?.length || 0;
-        const graded = subs?.filter(s => s.grade)?.length || 0;
-
-        reportData.push({
-          assignmentTitle: a.title,
-          subjectName: (a as any).subject?.name || '',
-          streamName,
-          totalStudents: totalStudents || 0,
-          submitted,
-          graded,
-          averageGrade: graded > 0 ? `${graded}/${submitted} graded` : 'N/A',
-        });
-      }
-
-      setReports(reportData);
+      try {
+        const response = await fetch('/api/admin/reports', { cache: 'no-store' });
+        if (response.ok) {
+          const result = await response.json();
+          setReports(result.reports || []);
+        }
+      } catch { /* silent */ }
       setLoading(false);
     };
     load();

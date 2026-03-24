@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase';
 import { PageLoading, LoadingSpinner } from '@/components/Loading';
 import type { Assignment, Question, QuestionOption, QuestionType } from '@/lib/types';
 
@@ -59,42 +58,33 @@ export default function AssignmentQuestionBuilder() {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
 
   const loadData = useCallback(async () => {
-    const supabase = createClient();
+    try {
+      const response = await fetch(`/api/teacher/assignments/${assignmentId}`, { cache: 'no-store' });
+      if (!response.ok) { router.push('/teacher/assignments'); return; }
+      const result = await response.json();
 
-    const { data: asgn } = await supabase
-      .from('assignments')
-      .select('*, subject:subjects(name), stream:streams(name)')
-      .eq('id', assignmentId)
-      .single();
+      setAssignment(result.assignment as Assignment);
 
-    if (!asgn) { router.push('/teacher/assignments'); return; }
-    setAssignment(asgn as Assignment);
-
-    const { data: qs } = await supabase
-      .from('questions')
-      .select('*, options:question_options(*)')
-      .eq('assignment_id', assignmentId)
-      .order('order_index');
-
-    if (qs && qs.length > 0) {
-      setQuestions(qs.map((q: any) => ({
-        id: q.id,
-        question_text: q.question_text,
-        question_type: q.question_type,
-        points: q.points,
-        order_index: q.order_index,
-        marking_scheme: q.marking_scheme || '',
-        instructions: q.instructions || '',
-        options: (q.options || [])
-          .sort((a: any, b: any) => a.option_label.localeCompare(b.option_label))
-          .map((o: any) => ({
-            id: o.id,
-            option_label: o.option_label,
-            option_text: o.option_text,
-            is_correct: o.is_correct,
-          })),
-      })));
-    }
+      if (result.questions && result.questions.length > 0) {
+        setQuestions(result.questions.map((q: any) => ({
+          id: q.id,
+          question_text: q.question_text,
+          question_type: q.question_type,
+          points: q.points,
+          order_index: q.order_index,
+          marking_scheme: q.marking_scheme || '',
+          instructions: q.instructions || '',
+          options: (q.options || [])
+            .sort((a: any, b: any) => a.option_label.localeCompare(b.option_label))
+            .map((o: any) => ({
+              id: o.id,
+              option_label: o.option_label,
+              option_text: o.option_text,
+              is_correct: o.is_correct,
+            })),
+        })));
+      }
+    } catch { router.push('/teacher/assignments'); }
     setLoading(false);
   }, [assignmentId, router]);
 
@@ -162,45 +152,13 @@ export default function AssignmentQuestionBuilder() {
 
     setSaving(true);
     try {
-      const supabase = createClient();
+      const response = await fetch(`/api/teacher/assignments/${assignmentId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save_questions', questions }),
+      });
 
-      // Delete existing questions (cascade deletes options)
-      await supabase.from('questions').delete().eq('assignment_id', assignmentId);
-
-      // Insert questions
-      for (const q of questions) {
-        const { data: savedQ, error: qErr } = await supabase
-          .from('questions')
-          .insert({
-            assignment_id: assignmentId,
-            question_text: q.question_text.trim(),
-            question_type: q.question_type,
-            points: q.points,
-            order_index: q.order_index,
-            marking_scheme: q.marking_scheme.trim() || null,
-            instructions: q.instructions.trim() || null,
-          })
-          .select()
-          .single();
-
-        if (qErr) throw qErr;
-
-        if (q.question_type === 'mcq' && q.options.length > 0) {
-          const optInserts = q.options.map(o => ({
-            question_id: savedQ.id,
-            option_label: o.option_label,
-            option_text: o.option_text.trim(),
-            is_correct: o.is_correct,
-          }));
-
-          const { error: oErr } = await supabase.from('question_options').insert(optInserts);
-          if (oErr) throw oErr;
-        }
-      }
-
-      // Update total points
-      const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
-      await supabase.from('assignments').update({ total_points: totalPoints }).eq('id', assignmentId);
+      if (!response.ok) throw new Error('Failed');
 
       setSuccess('Questions saved successfully!');
       await loadData();
@@ -221,13 +179,13 @@ export default function AssignmentQuestionBuilder() {
 
     setPublishing(true);
     try {
-      const supabase = createClient();
-      const { error: pubErr } = await supabase
-        .from('assignments')
-        .update({ status: 'published' })
-        .eq('id', assignmentId);
+      const response = await fetch(`/api/teacher/assignments/${assignmentId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'publish' }),
+      });
 
-      if (pubErr) throw pubErr;
+      if (!response.ok) throw new Error('Failed');
 
       setSuccess('Assignment published! Students can now see it.');
       await loadData();
@@ -247,13 +205,13 @@ export default function AssignmentQuestionBuilder() {
 
     setPublishing(true);
     try {
-      const supabase = createClient();
-      const { error: pubErr } = await supabase
-        .from('assignments')
-        .update({ status: 'active' })
-        .eq('id', assignmentId);
+      const response = await fetch(`/api/teacher/assignments/${assignmentId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'start_exam' }),
+      });
 
-      if (pubErr) throw pubErr;
+      if (!response.ok) throw new Error('Failed');
 
       setSuccess('Exam is now LIVE! Students can start taking it.');
       await loadData();

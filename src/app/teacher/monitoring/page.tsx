@@ -51,34 +51,26 @@ export default function LiveMonitoring() {
   const [refreshing, setRefreshing] = useState(false);
 
   const loadExams = useCallback(async () => {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    // Get teacher's active/published exam-type assignments
-    const { data: exams } = await supabase
-      .from('assignments')
-      .select('id, title, mode, time_limit, total_points, status, created_at, subject:subjects(name), stream:streams(name)')
-      .eq('created_by', user.id)
-      .in('mode', ['mcq', 'theory', 'mixed', 'exam'])
-      .in('status', ['active', 'published'])
-      .order('created_at', { ascending: false });
-
-    const mapped = (exams || []).map((e: any) => ({
-      id: e.id,
-      title: e.title,
-      mode: e.mode,
-      time_limit: e.time_limit,
-      total_points: e.total_points,
-      subject_name: e.subject?.name || '',
-      stream_name: e.stream?.name || '',
-      started_at: e.created_at,
-    }));
-
-    setActiveExams(mapped);
-    if (mapped.length > 0 && !selectedExam) {
-      setSelectedExam(mapped[0].id);
-    }
+    try {
+      const response = await fetch('/api/teacher/monitoring', { cache: 'no-store' });
+      if (response.ok) {
+        const result = await response.json();
+        const mapped = (result.exams || []).map((e: any) => ({
+          id: e.id,
+          title: e.title,
+          mode: e.mode,
+          time_limit: e.time_limit,
+          total_points: e.total_points,
+          subject_name: e.subject?.name || '',
+          stream_name: e.stream?.name || '',
+          started_at: e.created_at,
+        }));
+        setActiveExams(mapped);
+        if (mapped.length > 0 && !selectedExam) {
+          setSelectedExam(mapped[0].id);
+        }
+      }
+    } catch { /* silent */ }
     setLoading(false);
   }, [selectedExam]);
 
@@ -86,44 +78,17 @@ export default function LiveMonitoring() {
     if (!selectedExam) return;
     setRefreshing(true);
 
-    const supabase = createClient();
-    const { data: sessData } = await supabase
-      .from('exam_sessions')
-      .select('*')
-      .eq('assignment_id', selectedExam)
-      .order('started_at', { ascending: false });
-
-    if (!sessData || sessData.length === 0) {
+    try {
+      const response = await fetch(`/api/teacher/monitoring?examId=${selectedExam}`, { cache: 'no-store' });
+      if (response.ok) {
+        const result = await response.json();
+        setSessions(result.sessions || []);
+      } else {
+        setSessions([]);
+      }
+    } catch {
       setSessions([]);
-      setRefreshing(false);
-      return;
     }
-
-    // Get student profiles
-    const studentIds = sessData.map((s: any) => s.student_id);
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, full_name, admission_number')
-      .in('id', studentIds);
-
-    const profileMap: Record<string, { full_name: string; admission_number: string }> = {};
-    (profiles || []).forEach((p: any) => { profileMap[p.id] = p; });
-
-    const rows: SessionRow[] = sessData.map((s: any) => ({
-      id: s.id,
-      student_id: s.student_id,
-      assignment_id: s.assignment_id,
-      status: s.status,
-      started_at: s.started_at,
-      ended_at: s.ended_at,
-      last_activity: s.last_activity || s.started_at,
-      time_remaining: s.time_remaining,
-      score: s.score,
-      student_name: profileMap[s.student_id]?.full_name || 'Unknown',
-      admission_number: profileMap[s.student_id]?.admission_number || '',
-    }));
-
-    setSessions(rows);
     setRefreshing(false);
   }, [selectedExam]);
 

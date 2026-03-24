@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase';
 import { PageLoading } from '@/components/Loading';
 import type { Submission } from '@/lib/types';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
@@ -24,18 +23,13 @@ export default function StudentGrades() {
 
   useEffect(() => {
     const load = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data } = await supabase
-        .from('submissions')
-        .select('*, assignment:assignments(*, subject:subjects(name))')
-        .eq('student_id', user.id)
-        .not('grade', 'is', null)
-        .order('graded_at', { ascending: false });
-
-      setSubmissions((data || []) as Submission[]);
+      try {
+        const response = await fetch('/api/student/grades', { cache: 'no-store' });
+        if (response.ok) {
+          const result = await response.json();
+          setSubmissions((result.submissions || []) as Submission[]);
+        }
+      } catch { /* silent */ }
       setLoading(false);
     };
     load();

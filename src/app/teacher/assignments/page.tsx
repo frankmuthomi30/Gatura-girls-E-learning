@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase';
 import { ConfirmDialog, useConfirmDialog } from '@/components/ConfirmDialog';
 import { PageLoading, LoadingSpinner } from '@/components/Loading';
 import { StreamBadge } from '@/components/StreamBadge';
@@ -65,22 +64,15 @@ export default function TeacherAssignments() {
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const [{ data: subs }, { data: strs }, { data: asgns }] = await Promise.all([
-      supabase.from('subjects').select('*, stream:streams(id, name)').eq('teacher_id', user.id),
-      supabase.from('streams').select('*').order('name'),
-      supabase.from('assignments')
-        .select('*, subject:subjects(name), stream:streams(name)')
-        .eq('created_by', user.id)
-        .order('created_at', { ascending: false }),
-    ]);
-
-    setSubjects((subs || []) as Subject[]);
-    setStreams((strs || []) as Stream[]);
-    setAssignments((asgns || []) as Assignment[]);
+    try {
+      const response = await fetch('/api/teacher/assignments', { cache: 'no-store' });
+      if (response.ok) {
+        const result = await response.json();
+        setSubjects((result.subjects || []) as Subject[]);
+        setStreams((result.streams || []) as Stream[]);
+        setAssignments((result.assignments || []) as Assignment[]);
+      }
+    } catch { /* silent */ }
     setLoading(false);
   };
 
@@ -106,32 +98,25 @@ export default function TeacherAssignments() {
 
     setSaving(true);
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const response = await fetch('/api/teacher/assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: form.title.trim(),
+          description: form.description.trim() || null,
+          instructions: form.instructions.trim() || null,
+          subject_id: form.subject_id,
+          stream_ids: form.stream_ids,
+          due_date: new Date(form.due_date).toISOString(),
+          mode: form.mode,
+          time_limit: form.time_limit ? parseInt(form.time_limit) : null,
+          is_exam: form.is_exam,
+          shuffle_questions: form.shuffle_questions,
+        }),
+      });
 
-      const inserts = (form.stream_ids.includes('all') ? [null] : form.stream_ids).map((streamId) => ({
-        title: form.title.trim(),
-        description: form.description.trim() || null,
-        instructions: form.instructions.trim() || null,
-        subject_id: form.subject_id,
-        stream_id: streamId,
-        due_date: new Date(form.due_date).toISOString(),
-        created_by: user.id,
-        mode: form.mode,
-        time_limit: form.time_limit ? parseInt(form.time_limit) : null,
-        is_exam: form.is_exam,
-        shuffle_questions: form.shuffle_questions,
-        status,
-        total_points: 0,
-      }));
-
-      const { data: created, error: insertError } = await supabase
-        .from('assignments')
-        .insert(inserts)
-        .select();
-
-      if (insertError) throw insertError;
+      if (!response.ok) throw new Error('Failed');
+      const result = await response.json();
 
       setForm({
         title: '', description: '', instructions: '', subject_id: '', stream_ids: [],
@@ -140,8 +125,8 @@ export default function TeacherAssignments() {
       setShowForm(false);
       await loadData();
 
-      if (needsQuestions && created && created.length > 0) {
-        window.location.href = `/teacher/assignments/${created[0].id}`;
+      if (needsQuestions && result.created && result.created.length > 0) {
+        window.location.href = `/teacher/assignments/${result.created[0].id}`;
       }
     } catch {
       setError('Failed to create assignment. Please try again.');
