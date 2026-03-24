@@ -50,30 +50,32 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const load = async () => {
-      const [dashboardResponse, storageHealthResponse] = await Promise.all([
-        fetch('/api/admin/dashboard', { cache: 'no-store' }),
-        fetch('/api/admin/storage-health'),
-      ]);
+      try {
+        const [dashboardResponse, storageHealthResponse] = await Promise.all([
+          fetch('/api/admin/dashboard', { cache: 'no-store' }),
+          fetch('/api/admin/storage-health'),
+        ]);
 
-      if (dashboardResponse.ok) {
-        const result = await dashboardResponse.json();
-        setStats(result.stats);
-        setExamStats(result.examStats);
-      }
+        if (dashboardResponse.ok) {
+          const result = await dashboardResponse.json();
+          setStats(result.stats);
+          setExamStats(result.examStats);
+        }
 
-      if (storageHealthResponse.ok) {
-        const storageResult = await storageHealthResponse.json();
-        setStorageHealth(storageResult as StorageHealth);
-      } else {
-        setStorageHealth(null);
-      }
-
+        if (storageHealthResponse.ok) {
+          const storageResult = await storageHealthResponse.json();
+          setStorageHealth(storageResult as StorageHealth);
+        } else {
+          setStorageHealth(null);
+        }
+      } catch { /* silent */ }
       setLoading(false);
     };
     load();
   }, []);
 
-  if (loading || !stats) return <PageLoading />;
+  if (loading) return <PageLoading />;
+  if (!stats) return <div className="p-6 text-center text-gray-500">Failed to load dashboard data.</div>;
 
   const streamColors: Record<string, string> = {
     Blue: '#185FA5', Green: '#1A6B45', Magenta: '#99355A',

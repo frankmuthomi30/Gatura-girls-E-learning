@@ -54,13 +54,21 @@ export async function GET() {
     }
   });
 
+  const sessions = examSessions || [];
+
   return NextResponse.json({
-    totalStudents: studentCount || 0,
-    totalTeachers: teacherCount || 0,
-    totalAssignments: assignmentCount || 0,
-    totalSubmissions: submissionCount || 0,
-    streamCounts,
-    activeExams: activeExamCount || 0,
-    examSessions: examSessions || [],
+    stats: {
+      totalStudents: studentCount || 0,
+      totalTeachers: teacherCount || 0,
+      totalAssignments: assignmentCount || 0,
+      totalSubmissions: submissionCount || 0,
+      streamCounts,
+    },
+    examStats: {
+      activeExams: activeExamCount || 0,
+      inProgress: sessions.filter((s: any) => s.status === 'in_progress').length,
+      submitted: sessions.filter((s: any) => s.status === 'submitted').length,
+      timedOut: sessions.filter((s: any) => s.status === 'timed_out').length,
+    },
   });
 }
