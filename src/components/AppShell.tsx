@@ -21,7 +21,8 @@ import {
   Users,
   Briefcase,
   Layers,
-  Database
+  Database,
+  Video
 } from 'lucide-react';
 import type { UserRole } from '@/lib/types';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -42,6 +43,7 @@ const studentNav: NavItem[] = [
   { label: 'Assignments', href: '/student/assignments', icon: <BookOpen className="h-5 w-5" /> },
   { label: 'Announcements', href: '/student/announcements', icon: <Bell className="h-5 w-5" /> },
   { label: 'Grade Chat', href: '/student/chat', icon: <MessageCircle className="h-5 w-5" /> },
+  { label: 'Resources', href: '/student/resources', icon: <Video className="h-5 w-5" /> },
   { label: 'Grades', href: '/student/grades', icon: <FileText className="h-5 w-5" /> },
   { label: 'Settings', href: '/student/settings', icon: <Settings className="h-5 w-5" /> },
 ];
@@ -51,6 +53,7 @@ const teacherNav: NavItem[] = [
   { label: 'Assignments', href: '/teacher/assignments', icon: <BookOpen className="h-5 w-5" /> },
   { label: 'Submissions', href: '/teacher/submissions', icon: <FileText className="h-5 w-5" /> },
   { label: 'Announcements', href: '/teacher/announcements', icon: <Bell className="h-5 w-5" /> },
+  { label: 'Resources', href: '/teacher/resources', icon: <Video className="h-5 w-5" /> },
   { label: 'Grade Chats', href: '/teacher/chat', icon: <MessageCircle className="h-5 w-5" /> },
   { label: 'Live Monitor', href: '/teacher/monitoring', icon: <Monitor className="h-5 w-5" /> },
 ];
