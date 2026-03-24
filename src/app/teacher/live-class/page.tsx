@@ -40,7 +40,6 @@ export default function TeacherLiveClass() {
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState('');
   const [elapsed, setElapsed] = useState('');
-
   const [form, setForm] = useState({
     title: '',
     subject_id: '',
@@ -158,25 +157,33 @@ export default function TeacherLiveClass() {
             </div>
           </div>
 
-          {/* Jitsi iframe */}
-          <div className="rounded-2xl overflow-hidden border border-border shadow-xl bg-black">
-            <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-              <iframe
-                className="absolute inset-0 w-full h-full"
-                src={`https://meet.jit.si/${activeSession.room_id}#config.prejoinConfig.enabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&config.disableDeepLinking=true&interfaceConfig.SHOW_JITSI_WATERMARK=false&interfaceConfig.SHOW_WATERMARK_FOR_GUESTS=false&interfaceConfig.TOOLBAR_BUTTONS=["microphone","camera","desktop","chat","raisehand","tileview","hangup","settings"]`}
-                title="Live Class"
-                allow="camera; microphone; display-capture; autoplay; clipboard-write"
-                allowFullScreen
-                style={{ border: 0 }}
-              />
+          {/* Open Video Room */}
+          <div className="card text-center py-8 space-y-4">
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white text-4xl mx-auto shadow-lg shadow-blue-500/20">
+              📹
             </div>
+            <div>
+              <p className="text-lg font-semibold">Your video room is ready</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Click below to open the video room in a new tab. Share your screen, chat, and teach live.
+              </p>
+            </div>
+            <button
+              onClick={() => window.open(`https://meet.jit.si/${activeSession.room_id}`, '_blank')}
+              className="btn-primary px-8 py-3 rounded-xl font-semibold text-base inline-flex items-center gap-2 shadow-lg shadow-primary/20"
+            >
+              🎥 Open Video Room
+            </button>
+            <p className="text-xs text-gray-400">
+              Opens in a new browser tab — no account needed, completely free
+            </p>
           </div>
 
           {/* Room info */}
           <div className="card bg-muted/30">
             <p className="text-sm text-gray-500 dark:text-gray-400">
               <strong>Students can see this class</strong> — they&apos;ll have a 🔴 LIVE indicator on their dashboard.
-              The room auto-connects when they click &quot;Join&quot;.
+              When they click &quot;Join&quot;, the same video room opens in their browser.
             </p>
             <p className="text-xs text-gray-400 mt-2 font-mono">
               Room: {activeSession.room_id}

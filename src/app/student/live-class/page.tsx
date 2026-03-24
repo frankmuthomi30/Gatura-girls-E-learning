@@ -74,23 +74,31 @@ export default function StudentLiveClass() {
           </div>
         </div>
 
-        {/* Jitsi embed */}
-        <div className="rounded-2xl overflow-hidden border border-border shadow-xl bg-black">
-          <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-            <iframe
-              className="absolute inset-0 w-full h-full"
-              src={`https://meet.jit.si/${joinedRoom}#config.prejoinConfig.enabled=false&config.startWithAudioMuted=true&config.startWithVideoMuted=true&config.disableDeepLinking=true&interfaceConfig.SHOW_JITSI_WATERMARK=false&interfaceConfig.SHOW_WATERMARK_FOR_GUESTS=false&interfaceConfig.TOOLBAR_BUTTONS=["microphone","camera","chat","raisehand","tileview","hangup"]`}
-              title="Live Class"
-              allow="camera; microphone; autoplay; clipboard-write"
-              allowFullScreen
-              style={{ border: 0 }}
-            />
+        {/* Open Video Room */}
+        <div className="card text-center py-8 space-y-4">
+          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center text-white text-4xl mx-auto shadow-lg shadow-red-500/20">
+            🎥
           </div>
+          <div>
+            <p className="text-lg font-semibold">You&apos;re in! Click below to join the video</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              The video room opens in a new tab. No account needed — just click and join.
+            </p>
+          </div>
+          <button
+            onClick={() => window.open(`https://meet.jit.si/${joinedRoom}`, '_blank')}
+            className="btn-primary px-8 py-3 rounded-xl font-semibold text-base inline-flex items-center gap-2 shadow-lg shadow-primary/20"
+          >
+            ▶ Open Video Room
+          </button>
+          <p className="text-xs text-gray-400">
+            Opens in a new browser tab — completely free, no login required
+          </p>
         </div>
 
         <div className="card bg-muted/30">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            You joined with <strong>mic and camera off</strong> by default. Use the controls in the video to unmute or turn on your camera.
+            Your mic and camera will be <strong>off by default</strong>. You can turn them on in the video room controls.
           </p>
         </div>
       </div>
