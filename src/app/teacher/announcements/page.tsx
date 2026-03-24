@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { AnnouncementContent } from '@/components/AnnouncementContent';
 import { ConfirmDialog, useConfirmDialog } from '@/components/ConfirmDialog';
-import { createClient } from '@/lib/supabase';
 import { PageLoading, LoadingSpinner } from '@/components/Loading';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { StreamBadge } from '@/components/StreamBadge';
@@ -37,20 +36,16 @@ export default function TeacherAnnouncements() {
   };
 
   const loadData = async () => {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const [{ data: anns }, { data: strs }] = await Promise.all([
-      supabase.from('announcements')
-        .select('*, stream:streams(name)')
-        .eq('created_by', user.id)
-        .order('created_at', { ascending: false }),
-      supabase.from('streams').select('*').order('name'),
-    ]);
-
-    setAnnouncements((anns || []) as Announcement[]);
-    setStreams((strs || []) as Stream[]);
+    try {
+      const response = await fetch('/api/teacher/announcements', { cache: 'no-store' });
+      if (!response.ok) {
+        setLoading(false);
+        return;
+      }
+      const result = await response.json();
+      setAnnouncements((result.announcements || []) as Announcement[]);
+      setStreams((result.streams || []) as Stream[]);
+    } catch { /* silent */ }
     setLoading(false);
   };
 
@@ -65,22 +60,25 @@ export default function TeacherAnnouncements() {
 
     setSaving(true);
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const payload = {
         title: form.title.trim(),
         body: form.body.trim() || null,
         stream_id: form.stream_id || null,
       };
 
-      const query = editingId
-        ? supabase.from('announcements').update(payload).eq('id', editingId).eq('created_by', user.id)
-        : supabase.from('announcements').insert({ ...payload, created_by: user.id });
+      const response = editingId
+        ? await fetch('/api/teacher/announcements', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: editingId, ...payload }),
+          })
+        : await fetch('/api/teacher/announcements', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
 
-      const { error: submitError } = await query;
-      if (submitError) throw submitError;
+      if (!response.ok) throw new Error('Failed');
 
       resetForm();
       setShowForm(false);
@@ -113,17 +111,11 @@ export default function TeacherAnnouncements() {
 
     setDeletingId(announcement.id);
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const response = await fetch(`/api/teacher/announcements?id=${announcement.id}`, {
+        method: 'DELETE',
+      });
 
-      const { error: deleteError } = await supabase
-        .from('announcements')
-        .delete()
-        .eq('id', announcement.id)
-        .eq('created_by', user.id);
-
-      if (deleteError) throw deleteError;
+      if (!response.ok) throw new Error('Failed');
 
       if (editingId === announcement.id) {
         resetForm();
