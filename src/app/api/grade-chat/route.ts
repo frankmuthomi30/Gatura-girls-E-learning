@@ -3,8 +3,37 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { getSupabaseUrl } from '@/lib/supabase-env';
 
-const CHAT_RETENTION_DAYS = 7;
+const CHAT_RETENTION_DAYS = 1;
 const VALID_GRADES = [10, 11, 12];
+
+// Blocked words/patterns for chat content filtering (school-appropriate)
+const BLOCKED_PATTERNS: RegExp[] = [
+  /\b(fuck|f+u+c+k+|fuk|fck|fcuk|phuck|phuk)\w*/i,
+  /\b(shit|sh[1i!]t|bullshit|sh\*t)\w*/i,
+  /\b(ass|a[s$]{2}|a\$\$)\b/i,
+  /\b(asshole|a[s$]{2}hole)\w*/i,
+  /\b(bitch|b[1i!]tch|b\*tch)\w*/i,
+  /\b(damn|dammit|damnit)\w*/i,
+  /\b(dick|d[1i!]ck)\b/i,
+  /\b(pussy|pu[s$]{2}y)\b/i,
+  /\b(cock|cok)\b/i,
+  /\b(bastard|b[a@]stard)\w*/i,
+  /\b(slut|wh[o0]re|h[o0]e)\b/i,
+  /\b(nigga|n[1i!]gger|n[1i!]gga)\w*/i,
+  /\b(cunt)\b/i,
+  /\b(retard|retarded)\w*/i,
+  /\b(stfu|gtfo|lmfao)\b/i,
+  /\b(porn|p[o0]rn)\w*/i,
+  /\b(sex|s[e3]x)\b/i,
+  /\b(nude|nudes|naked)\b/i,
+  /\b(kill\s+(your|my|him|her|them)self)\b/i,
+  /\b(idiot|stupid|dumb)\s+(ass|bitch|fuck)/i,
+];
+
+function containsBlockedContent(text: string): boolean {
+  const normalized = text.replace(/[_\-.*#@!$]/g, '').replace(/\s{2,}/g, ' ');
+  return BLOCKED_PATTERNS.some(pattern => pattern.test(text) || pattern.test(normalized));
+}
 
 type ChatRole = 'student' | 'teacher' | 'admin';
 
@@ -70,6 +99,15 @@ async function pruneOldMessages(adminClient: any, enabled: boolean) {
 
   const cutoff = new Date(Date.now() - CHAT_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
   await adminClient.from('grade_chat_messages').delete().lt('created_at', cutoff);
+}
+
+async function isGradeMuted(client: any, grade: number): Promise<boolean> {
+  const { data } = await client
+    .from('chat_grade_settings')
+    .select('muted')
+    .eq('grade', grade)
+    .single();
+  return data?.muted === true;
 }
 
 function resolveGrade(profile: ChatProfile, requestedGrade: number | null) {
@@ -158,10 +196,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const result = await loadMessages(context.dataClient, grade, context.profile);
+    const [result, muted] = await Promise.all([
+      loadMessages(context.dataClient, grade, context.profile),
+      isGradeMuted(context.dataClient, grade).catch(() => false),
+    ]);
     return NextResponse.json({
       role: context.profile.role,
       grade,
+      muted,
       retentionDays: CHAT_RETENTION_DAYS,
       supportsReplies: result.supportsReplies,
       messages: result.messages,
@@ -185,12 +227,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Grade is not configured' }, { status: 400 });
   }
 
+  // Students cannot post when grade chat is muted
+  if (context.profile.role === 'student') {
+    const muted = await isGradeMuted(context.dataClient, grade).catch(() => false);
+    if (muted) {
+      return NextResponse.json({ error: 'Chat is currently muted by admin. You cannot send messages right now.' }, { status: 403 });
+    }
+  }
+
   if (!message) {
     return NextResponse.json({ error: 'Message cannot be empty' }, { status: 400 });
   }
 
   if (message.length > 800) {
     return NextResponse.json({ error: 'Message is too long' }, { status: 400 });
+  }
+
+  if (containsBlockedContent(message)) {
+    return NextResponse.json({ error: 'Your message contains inappropriate language. Please keep the chat respectful.' }, { status: 400 });
   }
 
   if (replyToMessageId) {
@@ -227,9 +281,11 @@ export async function POST(request: NextRequest) {
   }
 
   const result = await loadMessages(context.dataClient, grade, context.profile);
+  const postMuted = await isGradeMuted(context.dataClient, grade).catch(() => false);
   return NextResponse.json({
     role: context.profile.role,
     grade,
+    muted: postMuted,
     retentionDays: CHAT_RETENTION_DAYS,
     supportsReplies: result.supportsReplies,
     messages: result.messages,
@@ -253,6 +309,10 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Message id and content are required' }, { status: 400 });
   }
 
+  if (containsBlockedContent(message)) {
+    return NextResponse.json({ error: 'Your message contains inappropriate language. Please keep the chat respectful.' }, { status: 400 });
+  }
+
   const { data: existing } = await context.dataClient
     .from('grade_chat_messages')
     .select('sender_id, grade')
@@ -273,9 +333,11 @@ export async function PATCH(request: NextRequest) {
   }
 
   const result = await loadMessages(context.dataClient, grade!, context.profile);
+  const patchMuted = await isGradeMuted(context.dataClient, grade!).catch(() => false);
   return NextResponse.json({
     role: context.profile.role,
     grade,
+    muted: patchMuted,
     retentionDays: CHAT_RETENTION_DAYS,
     supportsReplies: result.supportsReplies,
     messages: result.messages,
@@ -317,11 +379,46 @@ export async function DELETE(request: NextRequest) {
   }
 
   const result = await loadMessages(context.dataClient, existing.grade, context.profile);
+  const deleteMuted = await isGradeMuted(context.dataClient, existing.grade).catch(() => false);
   return NextResponse.json({
     role: context.profile.role,
     grade: existing.grade,
+    muted: deleteMuted,
     retentionDays: CHAT_RETENTION_DAYS,
     supportsReplies: result.supportsReplies,
     messages: result.messages,
   });
+}
+
+export async function PUT(request: NextRequest) {
+  const context = await getContext();
+  if ('error' in context) return context.error;
+
+  if (context.profile.role !== 'admin') {
+    return NextResponse.json({ error: 'Only admins can mute/unmute chat' }, { status: 403 });
+  }
+
+  const body = await request.json().catch(() => null);
+  const grade = parseGrade(body?.grade ? String(body.grade) : null);
+  const muted = typeof body?.muted === 'boolean' ? body.muted : null;
+
+  if (!grade || muted === null) {
+    return NextResponse.json({ error: 'Grade and muted status are required' }, { status: 400 });
+  }
+
+  const { error } = await context.dataClient
+    .from('chat_grade_settings')
+    .upsert({
+      grade,
+      muted,
+      muted_at: muted ? new Date().toISOString() : null,
+      muted_by: muted ? context.profile.id : null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'grade' });
+
+  if (error) {
+    return NextResponse.json({ error: 'Failed to update mute setting' }, { status: 500 });
+  }
+
+  return NextResponse.json({ grade, muted });
 }

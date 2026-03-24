@@ -7,7 +7,7 @@ import { PageLoading, LoadingSpinner } from '@/components/Loading';
 import { extractSubmissionFilePath } from '@/lib/storage';
 import type { Assignment, Submission, Question, QuestionOption, ExamSession, StudentAnswer } from '@/lib/types';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const ALLOWED_TYPES = [
   'image/jpeg', 'image/png',
   'application/pdf',
@@ -319,7 +319,7 @@ export default function AssignmentDetail() {
     const selected = e.target.files?.[0];
     if (!selected) return;
     if (!ALLOWED_TYPES.includes(selected.type)) { setError('Only JPEG, PNG, PDF and Word documents are allowed.'); return; }
-    if (selected.size > MAX_FILE_SIZE) { setError('File must be smaller than 10MB.'); return; }
+    if (selected.size > MAX_FILE_SIZE) { setError('File must be smaller than 4MB.'); return; }
     setFile(selected);
     setFileName(selected.name);
     setError('');

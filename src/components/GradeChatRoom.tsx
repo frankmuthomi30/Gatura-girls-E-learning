@@ -55,7 +55,9 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
   const [messages, setMessages] = useState<GradeChatMessage[]>([]);
   const [supportsReplies, setSupportsReplies] = useState(true);
   const [selectedGrade, setSelectedGrade] = useState<number>(10);
-  const [retentionDays, setRetentionDays] = useState<number>(7);
+  const [retentionDays, setRetentionDays] = useState<number>(1);
+  const [muted, setMuted] = useState(false);
+  const [togglingMute, setTogglingMute] = useState(false);
   const [draft, setDraft] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<GradeChatMessage | null>(null);
@@ -127,7 +129,8 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
       setMessages((result?.messages || []) as GradeChatMessage[]);
       setSupportsReplies(result?.supportsReplies !== false);
       setSelectedGrade(result?.grade || activeGrade || 10);
-      setRetentionDays(result?.retentionDays || 7);
+      setRetentionDays(result?.retentionDays || 1);
+      setMuted(result?.muted === true);
       setError('');
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Failed to load chat');
@@ -158,7 +161,7 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
 
   const description = useMemo(() => {
     if (role === 'student') {
-      return `Shared with learners in Grade ${selectedGrade}. Replies help you answer specific posts and messages older than ${retentionDays} days are removed automatically.`;
+      return `Shared with learners in Grade ${selectedGrade}. Replies help you answer specific posts and messages older than 24 hours are removed automatically.`;
     }
     if (role === 'teacher') {
       return `Open any grade room, jump into a thread, and reply as a teacher using the full name saved on your profile.`;
@@ -216,7 +219,8 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
       setMessages((result?.messages || []) as GradeChatMessage[]);
       setSupportsReplies(result?.supportsReplies !== false);
       setSelectedGrade(result?.grade || selectedGrade);
-      setRetentionDays(result?.retentionDays || 7);
+      setRetentionDays(result?.retentionDays || 1);
+      setMuted(result?.muted === true);
       setDraft('');
       setEditingId(null);
       setReplyingTo(null);
@@ -245,6 +249,7 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
 
       setMessages((result?.messages || []) as GradeChatMessage[]);
       setSupportsReplies(result?.supportsReplies !== false);
+      setMuted(result?.muted === true);
       if (editingId === messageId) {
         setEditingId(null);
         setDraft('');
@@ -257,8 +262,30 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
   };
 
   if (loading) {
-    return <PageLoading message="Loading grade chat" description="Opening the room and cleaning up messages older than one week." />;
+    return <PageLoading message="Loading grade chat" description="Opening the room and cleaning up messages older than 24 hours." />;
   }
+
+  const isChatDisabled = muted && role === 'student';
+
+  const toggleMute = async () => {
+    setTogglingMute(true);
+    try {
+      const response = await fetch('/api/grade-chat', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ grade: selectedGrade, muted: !muted }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(result?.error || 'Failed to toggle mute');
+      }
+      setMuted(result?.muted === true);
+    } catch (muteError) {
+      setError(muteError instanceof Error ? muteError.message : 'Failed to toggle mute');
+    } finally {
+      setTogglingMute(false);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -309,9 +336,30 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
                 <button onClick={() => void loadChat(false, selectedGrade)} className="btn-secondary px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm">
                   Refresh
                 </button>
+                {role === 'admin' && (
+                  <button
+                    onClick={toggleMute}
+                    disabled={togglingMute}
+                    className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-xl font-semibold transition-colors ${
+                      muted
+                        ? 'bg-red-100 text-red-700 border border-red-200 hover:bg-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30 dark:hover:bg-red-500/30'
+                        : 'bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30 dark:hover:bg-emerald-500/30'
+                    }`}
+                    title={muted ? 'Unmute student chat' : 'Mute student chat'}
+                  >
+                    {togglingMute ? '...' : muted ? '🔇 Unmute' : '🔊 Mute'}
+                  </button>
+                )}
               </div>
             </div>
           </header>
+
+          {muted && (
+            <div className="mx-3 mt-2 sm:mx-5 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+              <span>🔇</span>
+              <span>{role === 'student' ? 'Chat is muted by admin. You cannot send messages right now.' : `Grade ${selectedGrade} chat is muted. Students cannot send messages.`}</span>
+            </div>
+          )}
 
           <div className="chat-room-body grid min-h-[72vh] grid-rows-[1fr_auto]">
             <div className="overflow-y-auto px-2 py-3 sm:px-4 sm:py-4" onClick={() => setEmojiPickerOpenId(null)}>
@@ -547,15 +595,16 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' && !event.shiftKey) {
                       event.preventDefault();
-                      if (draft.trim()) {
+                      if (draft.trim() && !isChatDisabled) {
                         void submitMessage(event);
                       }
                     }
                   }}
                   rows={1}
                   maxLength={800}
-                  className="min-h-[40px] sm:min-h-[44px] max-h-[120px] flex-1 resize-none border-0 bg-transparent px-1.5 sm:px-2 py-1.5 sm:py-2 text-[13px] sm:text-sm leading-[1.4] sm:leading-relaxed text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
-                  placeholder={role === 'student' ? 'Type a message...' : 'Type a message...'}
+                  disabled={isChatDisabled}
+                  className="min-h-[40px] sm:min-h-[44px] max-h-[120px] flex-1 resize-none border-0 bg-transparent px-1.5 sm:px-2 py-1.5 sm:py-2 text-[13px] sm:text-sm leading-[1.4] sm:leading-relaxed text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  placeholder={isChatDisabled ? 'Chat is muted by admin...' : 'Type a message...'}
                 />
                 <div className="flex shrink-0 items-center">
                   {(editingId || replyingTo) && (
@@ -574,7 +623,7 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
                   )}
                   <button
                     type="submit"
-                    disabled={saving || !draft.trim()}
+                    disabled={saving || !draft.trim() || isChatDisabled}
                     className="btn-primary flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full p-0 shadow-md disabled:opacity-30"
                   >
                     {saving ? (
@@ -605,7 +654,7 @@ export function GradeChatRoom({ role }: { role: UserRole }) {
               <li className="flex gap-2"><span>↩️</span> Swipe right on a message or hover to reply</li>
               <li className="flex gap-2"><span>😊</span> React with emojis — hover any message</li>
               <li className="flex gap-2"><span>⏎</span> Press Enter to send, Shift+Enter for new line</li>
-              <li className="flex gap-2"><span>🕐</span> Messages older than {retentionDays} days auto-delete</li>
+              <li className="flex gap-2"><span>🕐</span> Messages older than 24 hours auto-delete</li>
             </ul>
           </div>
 
