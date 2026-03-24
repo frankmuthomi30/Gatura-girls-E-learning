@@ -43,7 +43,10 @@ async function getContext() {
     return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
 
-  const { data: profile } = await supabase
+  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const dataClient = serviceRole ? createClient(getSupabaseUrl(), serviceRole) : supabase;
+
+  const { data: profile } = await dataClient
     .from('profiles')
     .select('id, role, grade, full_name')
     .eq('id', user.id)
@@ -52,9 +55,6 @@ async function getContext() {
   if (!profile || !['student', 'teacher', 'admin'].includes(profile.role)) {
     return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
   }
-
-  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  const dataClient = serviceRole ? createClient(getSupabaseUrl(), serviceRole) : supabase;
 
   return {
     canPruneMessages: Boolean(serviceRole),

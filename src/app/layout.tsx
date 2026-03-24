@@ -18,7 +18,6 @@ export const metadata: Metadata = {
   description: 'E-Learning platform for Gatura Girls Secondary School',
   manifest: '/manifest.json',
   appleWebApp: {
-    capable: true,
     statusBarStyle: 'default',
     title: 'Gatura Girls',
   },

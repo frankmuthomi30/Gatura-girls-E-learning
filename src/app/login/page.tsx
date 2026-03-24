@@ -98,7 +98,7 @@ export default function LoginPage() {
       >
         {/* Left Side: Branding / Features */}
         <section className="relative hidden lg:flex flex-col justify-between p-12 xl:p-16 border-r border-border/50 bg-gradient-to-br from-primary/10 via-background to-background overflow-hidden">
-          <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-[0.03] mix-blend-overlay" />
+          <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%270 0 256 256%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.9%27 numOctaves=%274%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27/%3E%3C/svg%3E")' }} />
           
           <motion.div variants={containerVariants} initial="hidden" animate="visible" className="relative z-10 space-y-8">
             <motion.div variants={itemVariants}>

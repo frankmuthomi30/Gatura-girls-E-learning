@@ -52,17 +52,7 @@ export async function requireAdminRoute(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  if (!profile || profile.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   const requireServiceRole = options.requireServiceRole ?? true;
 
   if (requireServiceRole && !serviceRole) {
@@ -72,6 +62,17 @@ export async function requireAdminRoute(
   const adminClient = serviceRole
     ? createClient(getSupabaseUrl(), serviceRole)
     : (supabase as unknown as SupabaseClient<any, 'public', any>);
+
+  // Use the admin client for the profile check to bypass RLS
+  const { data: profile } = await adminClient
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile || profile.role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   return {
     supabase,
