@@ -48,6 +48,7 @@ export default function StudentHome() {
   const [announcements, setAnnouncements] = useState<Array<Announcement>>([]);
   const [averageGrade, setAverageGrade] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [liveCount, setLiveCount] = useState(0);
 
   useEffect(() => {
     const load = async () => {
@@ -106,6 +107,15 @@ export default function StudentHome() {
       } else {
         setAnnouncements([]);
       }
+
+      // Check for live classes
+      try {
+        const liveRes = await fetch('/api/student/live-class', { cache: 'no-store' });
+        if (liveRes.ok) {
+          const liveData = await liveRes.json();
+          setLiveCount((liveData.liveSessions || []).length);
+        }
+      } catch {}
 
       setLoading(false);
     };
@@ -187,6 +197,38 @@ export default function StudentHome() {
           </div>
         </div>
       </motion.section>
+
+      {/* Live Class Banner */}
+      {liveCount > 0 && (
+        <motion.section variants={itemVariants}>
+          <Link href="/student/live-class">
+            <div className="relative overflow-hidden rounded-3xl border-2 border-red-500/30 bg-gradient-to-r from-red-500/10 via-pink-500/5 to-transparent shadow-lg shadow-red-500/5 p-6 cursor-pointer hover:border-red-500/50 transition-all group">
+              <div className="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-red-500/10 rounded-full blur-3xl" />
+              <div className="relative flex items-center gap-4">
+                <div className="relative flex-shrink-0">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center text-white text-2xl shadow-lg shadow-red-500/20">
+                    🎥
+                  </div>
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-white dark:border-gray-900" />
+                  </span>
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 animate-pulse">🔴 LIVE NOW</span>
+                  </div>
+                  <p className="font-bold text-lg mt-1">
+                    {liveCount === 1 ? 'A teacher is broadcasting live!' : `${liveCount} live classes happening now!`}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Tap to join the live class</p>
+                </div>
+                <ArrowRight className="h-6 w-6 text-red-500 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </div>
+          </Link>
+        </motion.section>
+      )}
 
       <AnimatePresence>
         {latestAnnouncement && (

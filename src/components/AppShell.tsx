@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { signOut } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Menu,
@@ -22,7 +22,8 @@ import {
   Briefcase,
   Layers,
   Database,
-  Video
+  Video,
+  Radio
 } from 'lucide-react';
 import type { UserRole } from '@/lib/types';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -44,6 +45,7 @@ const studentNav: NavItem[] = [
   { label: 'Announcements', href: '/student/announcements', icon: <Bell className="h-5 w-5" /> },
   { label: 'Grade Chat', href: '/student/chat', icon: <MessageCircle className="h-5 w-5" /> },
   { label: 'Resources', href: '/student/resources', icon: <Video className="h-5 w-5" /> },
+  { label: 'Live Class', href: '/student/live-class', icon: <Radio className="h-5 w-5" /> },
   { label: 'Grades', href: '/student/grades', icon: <FileText className="h-5 w-5" /> },
   { label: 'Settings', href: '/student/settings', icon: <Settings className="h-5 w-5" /> },
 ];
@@ -54,6 +56,7 @@ const teacherNav: NavItem[] = [
   { label: 'Submissions', href: '/teacher/submissions', icon: <FileText className="h-5 w-5" /> },
   { label: 'Announcements', href: '/teacher/announcements', icon: <Bell className="h-5 w-5" /> },
   { label: 'Resources', href: '/teacher/resources', icon: <Video className="h-5 w-5" /> },
+  { label: 'Live Class', href: '/teacher/live-class', icon: <Radio className="h-5 w-5" /> },
   { label: 'Grade Chats', href: '/teacher/chat', icon: <MessageCircle className="h-5 w-5" /> },
   { label: 'Live Monitor', href: '/teacher/monitoring', icon: <Monitor className="h-5 w-5" /> },
 ];
@@ -100,7 +103,25 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [hasLiveClass, setHasLiveClass] = useState(false);
   const navItems = getNavItems(role);
+
+  // Poll for live classes (students only)
+  useEffect(() => {
+    if (role !== 'student') return;
+    const check = async () => {
+      try {
+        const res = await fetch('/api/student/live-class', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          setHasLiveClass((data.liveSessions || []).length > 0);
+        }
+      } catch {}
+    };
+    check();
+    const interval = setInterval(check, 20000);
+    return () => clearInterval(interval);
+  }, [role]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -224,6 +245,12 @@ export function AppShell({
                   )}
                   <span className={isActive ? "text-primary-foreground" : ""}>{item.icon}</span>
                   {item.label}
+                  {item.label === 'Live Class' && hasLiveClass && (
+                    <span className="ml-auto flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-red-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
+                    </span>
+                  )}
                 </motion.div>
               </Link>
             );
