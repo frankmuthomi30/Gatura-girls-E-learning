@@ -29,6 +29,19 @@ export default function StudentLiveClass() {
   const [joinedTitle, setJoinedTitle] = useState('');
   const [roomOpened, setRoomOpened] = useState(false);
 
+  const joinSession = (session: LiveSession) => {
+    setJoinedRoom(session.room_id);
+    setJoinedTitle(session.title);
+    // Record attendance
+    fetch('/api/student/live-class', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: session.id }),
+    }).catch(() => {});
+    // Open Jitsi
+    openJitsiRoom(session.room_id);
+  };
+
   const openJitsiRoom = (roomId: string) => {
     const jitsiUrl = `https://meet.jit.si/${roomId}#config.prejoinConfig.enabled=false&config.startWithAudioMuted=true&config.startWithVideoMuted=true&config.resolution=360&config.disableDeepLinking=true&config.p2p.enabled=true&config.channelLastN=4&config.enableLayerSuspension=true&interfaceConfig.DISABLE_JOIN_LEAVE_NOTIFICATIONS=true&interfaceConfig.MOBILE_APP_PROMO=false`;
     window.open(jitsiUrl, '_blank');
@@ -208,7 +221,7 @@ export default function StudentLiveClass() {
                 </div>
 
                 <button
-                  onClick={() => { setJoinedRoom(s.room_id); setJoinedTitle(s.title); openJitsiRoom(s.room_id); }}
+                  onClick={() => joinSession(s)}
                   className="btn-primary mt-4 px-8 py-2.5 rounded-xl font-semibold flex items-center gap-2 text-base shadow-lg shadow-primary/20 transition-all duration-200 hover:scale-[1.02] active:scale-95"
                 >
                   <span className="text-lg">▶</span> Join Live Class

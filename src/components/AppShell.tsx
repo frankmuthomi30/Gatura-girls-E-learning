@@ -23,7 +23,8 @@ import {
   Layers,
   Database,
   Video,
-  Radio
+  Radio,
+  BarChart3
 } from 'lucide-react';
 import type { UserRole } from '@/lib/types';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -57,6 +58,7 @@ const teacherNav: NavItem[] = [
   { label: 'Announcements', href: '/teacher/announcements', icon: <Bell className="h-5 w-5" /> },
   { label: 'Resources', href: '/teacher/resources', icon: <Video className="h-5 w-5" /> },
   { label: 'Live Class', href: '/teacher/live-class', icon: <Radio className="h-5 w-5" /> },
+  { label: 'Reports', href: '/teacher/reports', icon: <BarChart3 className="h-5 w-5" /> },
   { label: 'Grade Chats', href: '/teacher/chat', icon: <MessageCircle className="h-5 w-5" /> },
   { label: 'Live Monitor', href: '/teacher/monitoring', icon: <Monitor className="h-5 w-5" /> },
 ];

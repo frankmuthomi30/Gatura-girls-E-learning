@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { getSupabaseUrl } from '@/lib/supabase-env';
@@ -42,4 +42,31 @@ export async function GET() {
   });
 
   return NextResponse.json({ liveSessions: filtered });
+}
+
+// POST: record attendance when student joins a live class
+export async function POST(request: NextRequest) {
+  const supabase = createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const db = serviceKey ? createClient(getSupabaseUrl(), serviceKey) : supabase;
+
+  const { data: profile } = await db.from('profiles').select('role').eq('id', user.id).single();
+  if (!profile || profile.role !== 'student') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const body = await request.json();
+  const { session_id } = body;
+  if (!session_id) return NextResponse.json({ error: 'session_id required' }, { status: 400 });
+
+  // Upsert — ignore if already recorded
+  await db.from('live_attendance').upsert(
+    { session_id, student_id: user.id },
+    { onConflict: 'session_id,student_id' }
+  );
+
+  return NextResponse.json({ success: true });
 }
