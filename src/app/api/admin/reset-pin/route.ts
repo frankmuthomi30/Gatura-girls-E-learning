@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminRoute } from '@/lib/admin-route';
-import { generateTemporaryPin } from '@/lib/pin';
+import { generateTemporaryPin, generateTemporaryPassword } from '@/lib/pin';
 
 export async function POST(request: NextRequest) {
   const routeContext = await requireAdminRoute(request, { enforceOrigin: true });
@@ -16,10 +16,18 @@ export async function POST(request: NextRequest) {
 
   const { adminClient } = routeContext;
 
-  const temporaryPin = generateTemporaryPin();
+  // Check the user's role to determine credential type
+  const { data: targetProfile } = await adminClient
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .single();
+
+  const isStaff = targetProfile?.role === 'admin' || targetProfile?.role === 'teacher';
+  const temporaryCredential = isStaff ? generateTemporaryPassword() : generateTemporaryPin();
 
   const { error } = await adminClient.auth.admin.updateUserById(userId, {
-    password: temporaryPin,
+    password: temporaryCredential,
   });
 
   if (error) {
@@ -32,5 +40,5 @@ export async function POST(request: NextRequest) {
     .update({ must_change_pin: true })
     .eq('id', userId);
 
-  return NextResponse.json({ success: true, temporary_pin: temporaryPin });
+  return NextResponse.json({ success: true, temporary_pin: temporaryCredential });
 }

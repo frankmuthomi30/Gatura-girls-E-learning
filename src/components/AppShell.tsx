@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import type { UserRole } from '@/lib/types';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { SessionTimeout } from '@/components/SessionTimeout';
 
 const ThemeToggle = dynamic(
   () => import('@/components/ThemeToggle').then((module) => module.ThemeToggle),
@@ -280,6 +281,9 @@ export function AppShell({
           </div>
         </AnimatedPage>
       </main>
+
+      {/* Session timeout for admin/teacher */}
+      <SessionTimeout role={role} />
     </div>
   );
 }

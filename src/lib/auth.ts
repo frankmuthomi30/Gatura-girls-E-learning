@@ -64,12 +64,12 @@ export async function changePin(newPin: string) {
 
   if (error) throw error;
 
-  // Update must_change_pin flag
+  // Update must_change_pin flag and password_changed_at
   const { data: { user } } = await supabase.auth.getUser();
   if (user) {
     await supabase
       .from('profiles')
-      .update({ must_change_pin: false })
+      .update({ must_change_pin: false, password_changed_at: new Date().toISOString() })
       .eq('id', user.id);
   }
 }

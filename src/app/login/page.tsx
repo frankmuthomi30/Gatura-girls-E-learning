@@ -49,7 +49,7 @@ export default function LoginPage() {
       return;
     }
     if (!pin.trim() || pin.length < 6) {
-      setError('Please enter your 6-digit PIN');
+      setError('Please enter your PIN or password');
       return;
     }
 
@@ -194,8 +194,8 @@ export default function LoginPage() {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between ml-1">
-                  <Label htmlFor="pin" className="text-muted-foreground">Security PIN</Label>
-                  <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60">6 digits</span>
+                  <Label htmlFor="pin" className="text-muted-foreground">PIN / Password</Label>
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60">min 6 chars</span>
                 </div>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -204,12 +204,10 @@ export default function LoginPage() {
                   <Input
                     id="pin"
                     type="password"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={6}
-                    placeholder="••••••"
+                    maxLength={50}
+                    placeholder="••••••••"
                     value={pin}
-                    onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                    onChange={(e) => setPin(e.target.value)}
                     disabled={loading}
                     className="pl-10 h-12 rounded-xl bg-muted/50 border-transparent hover:border-primary/30 focus-visible:border-primary focus-visible:ring-primary/20 focus-visible:bg-background transition-all tracking-widest text-lg"
                     autoComplete="current-password"
@@ -241,7 +239,7 @@ export default function LoginPage() {
                   <p className="flex justify-between"><span>Students:</span> <span className="text-foreground">Use Admission No.</span></p>
                   <p className="flex justify-between"><span>Teachers/Admin:</span> <span className="text-foreground">Use Staff ID</span></p>
                   <div className="h-px w-full bg-border/60 my-2" />
-                  <p className="opacity-70 italic">Ensure you use the temporary PIN provided by the administrator.</p>
+                  <p className="opacity-70 italic">Use the temporary PIN or password provided by your administrator.</p>
                 </div>
               </div>
             </motion.form>
