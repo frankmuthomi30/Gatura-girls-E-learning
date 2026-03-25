@@ -56,9 +56,9 @@ export default function ChangePinPage() {
         setError('Password must be at least 6 characters');
         return;
       }
-      // Block weak numeric PINs
-      if (/^\d+$/.test(newPin) && WEAK_PINS.includes(newPin)) {
-        setError('That PIN is too easy to guess. Choose something stronger.');
+      // Block weak/default passwords
+      if (WEAK_PINS.includes(newPin.toLowerCase())) {
+        setError('That password is too easy to guess. Choose something stronger.');
         return;
       }
     }

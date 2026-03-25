@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminRoute } from '@/lib/admin-route';
-import { generateTemporaryPin } from '@/lib/pin';
 import * as XLSX from 'xlsx';
+
+const DEFAULT_STUDENT_PASSWORD = '12345678';
 
 const VALID_STREAMS = ['Blue', 'Green', 'Magenta', 'Red', 'White', 'Yellow'];
 
@@ -90,11 +91,10 @@ export async function POST(request: NextRequest) {
       }
 
       const email = `${admissionNumber}@gatura.school`;
-      const temporaryPin = generateTemporaryPin();
 
       const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
         email,
-        password: temporaryPin,
+        password: DEFAULT_STUDENT_PASSWORD,
         email_confirm: true,
       });
 
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
       return {
         admission_number: admissionNumber,
         full_name: fullName,
-        temporary_pin: temporaryPin,
+        temporary_pin: DEFAULT_STUDENT_PASSWORD,
       };
     })
   );

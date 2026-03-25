@@ -170,9 +170,9 @@ export const STREAM_COLORS: Record<StreamName, string> = {
 
 export const STREAM_NAMES: StreamName[] = ['Blue', 'Green', 'Magenta', 'Red', 'White', 'Yellow'];
 
-// Weak PINs that should be blocked
+// Weak passwords/PINs that should be blocked when setting a new password
 export const WEAK_PINS = [
-  '123456', '000000', '111111', '222222', '333333',
+  '123456', '12345678', '000000', '111111', '222222', '333333',
   '444444', '555555', '666666', '777777', '888888',
-  '999999', '123123', '654321',
+  '999999', '123123', '654321', 'password', 'abcdefgh',
 ];

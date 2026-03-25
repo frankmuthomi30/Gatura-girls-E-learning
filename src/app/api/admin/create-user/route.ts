@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminRoute } from '@/lib/admin-route';
-import { generateTemporaryPin, generateTemporaryPassword } from '@/lib/pin';
+import { generateTemporaryPassword } from '@/lib/pin';
+
+const DEFAULT_STUDENT_PASSWORD = '12345678';
 
 export async function POST(request: NextRequest) {
   const routeContext = await requireAdminRoute(request, { enforceOrigin: true });
@@ -23,8 +25,8 @@ export async function POST(request: NextRequest) {
 
   const normalizedAdmissionNumber = admission_number.trim();
   const email = `${normalizedAdmissionNumber}@gatura.school`;
-  // Generate strong password for admin/teacher, 6-digit PIN for students
-  const temporaryCredential = role === 'student' ? generateTemporaryPin() : generateTemporaryPassword();
+  // Students get a well-known default password; staff get a strong random one
+  const temporaryCredential = role === 'student' ? DEFAULT_STUDENT_PASSWORD : generateTemporaryPassword();
 
   // Create auth user with admin API (no rate limit, no email sent)
   const { data: authData, error: authError } = await adminClient.auth.admin.createUser({

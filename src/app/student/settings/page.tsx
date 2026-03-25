@@ -23,8 +23,8 @@ export default function StudentSettings() {
       setError('Password must be at least 6 characters');
       return;
     }
-    if (/^\d+$/.test(newPin) && WEAK_PINS.includes(newPin)) {
-      setError('That PIN is too easy to guess. Choose something stronger.');
+    if (WEAK_PINS.includes(newPin.toLowerCase())) {
+      setError('That password is too easy to guess. Choose something stronger.');
       return;
     }
     if (newPin !== confirmPin) {
