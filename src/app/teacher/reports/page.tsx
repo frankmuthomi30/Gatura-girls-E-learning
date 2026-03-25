@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { PageLoading, LoadingSpinner } from '@/components/Loading';
 import { StreamBadge } from '@/components/StreamBadge';
 import type { StreamName } from '@/lib/types';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 type Tab = 'live' | 'exams' | 'assignments';
 
@@ -106,277 +108,342 @@ export default function TeacherReports() {
 
   useEffect(() => { loadReport(tab); }, [tab]);
 
-  const letterheadCSS = `
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    @page { size: A4; margin: 15mm 15mm 20mm 15mm; }
-    body { font-family: 'Times New Roman', 'Segoe UI', serif; color: #1a1a1a; font-size: 11pt; line-height: 1.4; }
+  // ── PDF HELPERS ──
 
-    .page { page-break-after: always; padding: 0; }
-    .page:last-child { page-break-after: avoid; }
-
-    /* ── LETTERHEAD ── */
-    .letterhead { text-align: center; padding-bottom: 12px; margin-bottom: 16px; position: relative; }
-    .letterhead::after { content: ''; display: block; height: 3px; background: linear-gradient(90deg, #065f46, #059669, #10b981, #059669, #065f46); margin-top: 12px; border-radius: 2px; }
-    .school-crest { width: 70px; height: 70px; margin: 0 auto 8px; }
-    .school-crest img { width: 100%; height: 100%; object-fit: contain; }
-    .school-name { font-size: 22pt; font-weight: bold; color: #065f46; letter-spacing: 1.5px; text-transform: uppercase; font-family: 'Times New Roman', serif; }
-    .school-motto { font-size: 9pt; color: #666; font-style: italic; margin-top: 2px; letter-spacing: 0.5px; }
-    .school-address { font-size: 8.5pt; color: #555; margin-top: 4px; }
-    .school-address span { margin: 0 8px; }
-
-    /* ── DOCUMENT TITLE ── */
-    .doc-title-block { text-align: center; margin: 16px 0; }
-    .doc-title { font-size: 14pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #1a1a1a; padding: 6px 0; border-top: 1.5px solid #333; border-bottom: 1.5px solid #333; display: inline-block; }
-    .doc-ref { font-size: 8pt; color: #888; margin-top: 6px; }
-
-    /* ── SESSION INFO ── */
-    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; margin: 14px 0; font-size: 10pt; }
-    .info-grid .label { color: #555; font-weight: normal; }
-    .info-grid .value { font-weight: 600; color: #1a1a1a; }
-    .info-row { display: flex; gap: 4px; }
-
-    /* ── TABLE ── */
-    table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 9.5pt; }
-    th { background: #065f46; color: white; padding: 7px 10px; text-align: left; font-weight: 600; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.5px; }
-    td { padding: 6px 10px; border-bottom: 1px solid #e5e5e5; }
-    tr:nth-child(even) td { background: #f9fafb; }
-    tr:hover td { background: #f0fdf4; }
-
-    /* ── SUMMARY BOX ── */
-    .summary-box { display: flex; justify-content: space-around; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 10px; margin: 14px 0; text-align: center; }
-    .summary-item .num { font-size: 18pt; font-weight: bold; color: #065f46; }
-    .summary-item .lbl { font-size: 8pt; color: #555; text-transform: uppercase; letter-spacing: 0.5px; }
-
-    /* ── FOOTER ── */
-    .doc-footer { margin-top: 30px; padding-top: 16px; border-top: 1.5px solid #ddd; }
-    .signatures { display: flex; justify-content: space-between; margin-top: 40px; }
-    .sig-block { text-align: center; width: 200px; }
-    .sig-line { border-top: 1px solid #333; padding-top: 4px; font-size: 9pt; color: #555; }
-    .stamp-area { text-align: center; margin-top: 20px; font-size: 8pt; color: #999; font-style: italic; }
-    .print-date { font-size: 8pt; color: #999; text-align: right; margin-top: 8px; }
-    .no-data { text-align: center; padding: 20px; color: #999; font-style: italic; }
-
-    @media print {
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .page { page-break-after: always; }
-    }
-  `;
-
-  const generateLetterhead = () => {
-    return `
-      <div class="letterhead">
-        <div class="school-crest">
-          <img src="/icons/icon-192.svg" alt="School Crest" onerror="this.style.display='none'" />
-        </div>
-        <div class="school-name">Gatura Girls&rsquo; Secondary School</div>
-        <div class="school-motto">&ldquo;Education for Excellence&rdquo;</div>
-        <div class="school-address">
-          <span>P.O. Box 82 &mdash; Gatura</span>
-          <span>|</span>
-          <span>Murang&rsquo;a County, Kenya</span>
-          <span>|</span>
-          <span>E-Learning Platform</span>
-        </div>
-      </div>
-    `;
-  };
+  const GREEN: [number, number, number] = [6, 95, 70]; // #065f46
+  const LIGHT_GREEN: [number, number, number] = [240, 253, 244];
+  const GRAY: [number, number, number] = [100, 100, 100];
 
   const generateDocRef = (type: string) => {
     const now = new Date();
-    const ref = `GGS/${type}/${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
-    return ref;
+    return `GGS/${type}/${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  };
+
+  const addLetterhead = (doc: jsPDF, startY: number = 15): number => {
+    const pageW = doc.internal.pageSize.getWidth();
+    const cx = pageW / 2;
+
+    // School crest placeholder (green rounded rect with "GG")
+    doc.setFillColor(...GREEN);
+    doc.roundedRect(cx - 12, startY, 24, 24, 4, 4, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('GG', cx, startY + 15.5, { align: 'center' });
+
+    // School name
+    let y = startY + 30;
+    doc.setTextColor(...GREEN);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text("GATURA GIRLS' SECONDARY SCHOOL", cx, y, { align: 'center' });
+
+    // Motto
+    y += 6;
+    doc.setTextColor(...GRAY);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.text('"Education for Excellence"', cx, y, { align: 'center' });
+
+    // Address
+    y += 5;
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text('P.O. Box 82 — Gatura  |  Murang\'a County, Kenya  |  E-Learning Platform', cx, y, { align: 'center' });
+
+    // Green decorative line
+    y += 4;
+    doc.setDrawColor(...GREEN);
+    doc.setLineWidth(1);
+    doc.line(20, y, pageW - 20, y);
+
+    return y + 6;
+  };
+
+  const addDocTitle = (doc: jsPDF, title: string, ref: string, y: number): number => {
+    const cx = doc.internal.pageSize.getWidth() / 2;
+
+    // Title with lines
+    doc.setDrawColor(50, 50, 50);
+    doc.setLineWidth(0.4);
+    doc.line(50, y, doc.internal.pageSize.getWidth() - 50, y);
+    y += 6;
+    doc.setTextColor(30, 30, 30);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text(title.toUpperCase(), cx, y, { align: 'center' });
+    y += 3;
+    doc.line(50, y, doc.internal.pageSize.getWidth() - 50, y);
+
+    // Ref
+    y += 5;
+    doc.setTextColor(150, 150, 150);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Ref: ${ref}`, cx, y, { align: 'center' });
+
+    return y + 6;
+  };
+
+  const addInfoGrid = (doc: jsPDF, items: [string, string][], y: number): number => {
+    doc.setFontSize(9);
+    const colW = 85;
+    const startX = 22;
+
+    items.forEach((item, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const x = startX + col * colW;
+      const yPos = y + row * 6;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...GRAY);
+      doc.text(`${item[0]}:`, x, yPos);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 30, 30);
+      doc.text(item[1], x + 28, yPos);
+    });
+
+    return y + Math.ceil(items.length / 2) * 6 + 4;
+  };
+
+  const addSummaryBoxes = (doc: jsPDF, items: { num: number; label: string }[], y: number): number => {
+    const pageW = doc.internal.pageSize.getWidth();
+    const boxW = (pageW - 44) / items.length;
+
+    doc.setFillColor(...LIGHT_GREEN);
+    doc.setDrawColor(187, 247, 208);
+    doc.roundedRect(20, y, pageW - 40, 18, 3, 3, 'FD');
+
+    items.forEach((item, i) => {
+      const cx = 20 + boxW * i + boxW / 2;
+      doc.setTextColor(...GREEN);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text(String(item.num), cx, y + 9, { align: 'center' });
+
+      doc.setTextColor(...GRAY);
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(item.label.toUpperCase(), cx, y + 14, { align: 'center' });
+    });
+
+    return y + 24;
+  };
+
+  const addFooter = (doc: jsPDF, leftLabel: string, rightLabel: string) => {
+    const pageH = doc.internal.pageSize.getHeight();
+    const pageW = doc.internal.pageSize.getWidth();
+    let y = pageH - 42;
+
+    // Separator line
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.4);
+    doc.line(20, y, pageW - 20, y);
+    y += 18;
+
+    // Signature lines
+    doc.setDrawColor(50, 50, 50);
+    doc.setLineWidth(0.3);
+    doc.line(30, y, 90, y);
+    doc.line(pageW - 90, y, pageW - 30, y);
+
+    y += 4;
+    doc.setTextColor(...GRAY);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(leftLabel, 60, y, { align: 'center' });
+    doc.text(rightLabel, pageW - 60, y, { align: 'center' });
+
+    // Stamp area
+    y += 10;
+    doc.setTextColor(180, 180, 180);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Official School Stamp', pageW / 2, y, { align: 'center' });
+
+    // Print date
+    doc.setTextColor(180, 180, 180);
+    doc.setFontSize(6.5);
+    doc.text(`Printed: ${new Date().toLocaleString('en-KE', { dateStyle: 'full', timeStyle: 'short' })}`, pageW - 20, pageH - 10, { align: 'right' });
+  };
+
+  // ── PDF DOCUMENT GENERATORS ──
+
+  const printLiveDocument = (sessions: LiveReport[]) => {
+    const doc = new jsPDF('p', 'mm', 'a4');
+
+    sessions.forEach((session, idx) => {
+      if (idx > 0) doc.addPage();
+
+      let y = addLetterhead(doc);
+      y = addDocTitle(doc, 'Live Class Attendance Register', `${generateDocRef('LCA')}-${idx + 1}`, y);
+      y = addInfoGrid(doc, [
+        ['Class Title', session.title],
+        ['Date', formatDate(session.started_at)],
+        ['Subject', session.subject?.name || 'General'],
+        ['Duration', formatDuration(session.started_at, session.ended_at)],
+        ['Stream', session.stream?.name || 'All Streams'],
+        ['Status', session.status === 'live' ? 'In Progress' : 'Completed'],
+      ], y);
+      y = addSummaryBoxes(doc, [{ num: session.attendanceCount, label: 'Students Present' }], y);
+
+      if (session.attendance.length > 0) {
+        autoTable(doc, {
+          startY: y,
+          head: [['No.', 'Student Name', 'Adm. Number', 'Stream', 'Form', 'Time Joined']],
+          body: session.attendance.map((a, i) => [
+            i + 1,
+            a.student?.full_name || 'Unknown',
+            a.student?.admission_number || '-',
+            a.student?.stream || '-',
+            a.student?.grade ? `Form ${a.student.grade - 9}` : '-',
+            formatDate(a.joined_at),
+          ]),
+          theme: 'grid',
+          headStyles: { fillColor: GREEN, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+          bodyStyles: { fontSize: 8, textColor: [30, 30, 30] },
+          alternateRowStyles: { fillColor: [249, 250, 251] },
+          margin: { left: 20, right: 20 },
+          styles: { cellPadding: 2.5 },
+        });
+      } else {
+        doc.setTextColor(...GRAY);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'italic');
+        doc.text('No attendance records for this session', doc.internal.pageSize.getWidth() / 2, y + 8, { align: 'center' });
+      }
+
+      addFooter(doc, "Teacher's Signature", 'Head of Department');
+    });
+
+    doc.save(`GGS_Live_Attendance_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  const printExamDocument = (exams: ExamReport[]) => {
+    const doc = new jsPDF('p', 'mm', 'a4');
+
+    exams.forEach((exam, idx) => {
+      if (idx > 0) doc.addPage();
+
+      let y = addLetterhead(doc);
+      y = addDocTitle(doc, 'Examination Attendance Report', `${generateDocRef('EAR')}-${idx + 1}`, y);
+      y = addInfoGrid(doc, [
+        ['Exam Title', exam.title],
+        ['Created', formatDate(exam.created_at)],
+        ['Subject', exam.subject?.name || 'General'],
+        ['Mode', exam.mode.toUpperCase()],
+        ['Stream', exam.stream?.name || 'All Streams'],
+        ['Due Date', exam.due_date ? formatDate(exam.due_date) : 'N/A'],
+      ], y);
+      y = addSummaryBoxes(doc, [
+        { num: exam.totalAttempts, label: 'Total Attempts' },
+        { num: exam.submitted, label: 'Submitted' },
+        { num: exam.totalAttempts - exam.submitted, label: 'Incomplete' },
+      ], y);
+
+      if (exam.examSessions.length > 0) {
+        autoTable(doc, {
+          startY: y,
+          head: [['No.', 'Student Name', 'Adm. Number', 'Stream', 'Status', 'Score', 'Date']],
+          body: exam.examSessions.map((es, i) => [
+            i + 1,
+            es.student?.full_name || 'Unknown',
+            es.student?.admission_number || '-',
+            es.student?.stream || '-',
+            es.status === 'submitted' ? 'Submitted' : es.status === 'in_progress' ? 'In Progress' : es.status === 'timed_out' ? 'Timed Out' : es.status,
+            es.score !== null && es.total_points ? `${es.score}/${es.total_points}` : '-',
+            formatDate(es.started_at),
+          ]),
+          theme: 'grid',
+          headStyles: { fillColor: GREEN, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+          bodyStyles: { fontSize: 8, textColor: [30, 30, 30] },
+          alternateRowStyles: { fillColor: [249, 250, 251] },
+          margin: { left: 20, right: 20 },
+          styles: { cellPadding: 2.5 },
+        });
+      } else {
+        doc.setTextColor(...GRAY);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'italic');
+        doc.text('No exam attempts recorded', doc.internal.pageSize.getWidth() / 2, y + 8, { align: 'center' });
+      }
+
+      addFooter(doc, 'Subject Teacher', 'Examinations Office');
+    });
+
+    doc.save(`GGS_Exam_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  const printAssignmentDocument = (assignments: AssignmentReport[]) => {
+    const doc = new jsPDF('p', 'mm', 'a4');
+
+    assignments.forEach((a, idx) => {
+      if (idx > 0) doc.addPage();
+
+      let y = addLetterhead(doc);
+      y = addDocTitle(doc, 'Assignment Submission Report', `${generateDocRef('ASR')}-${idx + 1}`, y);
+      y = addInfoGrid(doc, [
+        ['Assignment', a.title],
+        ['Created', formatDate(a.created_at)],
+        ['Subject', a.subject?.name || 'General'],
+        ['Type', a.mode.toUpperCase()],
+        ['Stream', a.stream?.name || 'All Streams'],
+        ['Due Date', a.due_date ? formatDate(a.due_date) : 'N/A'],
+      ], y);
+      y = addSummaryBoxes(doc, [
+        { num: a.totalSubmissions, label: 'Submitted' },
+        { num: a.graded, label: 'Graded' },
+        { num: a.totalSubmissions - a.graded, label: 'Ungraded' },
+      ], y);
+
+      if (a.submissions.length > 0) {
+        autoTable(doc, {
+          startY: y,
+          head: [['No.', 'Student Name', 'Adm. Number', 'Stream', 'Submitted', 'Grade', 'Graded On']],
+          body: a.submissions.map((sub, i) => [
+            i + 1,
+            sub.student?.full_name || 'Unknown',
+            sub.student?.admission_number || '-',
+            sub.student?.stream || '-',
+            formatDate(sub.submitted_at),
+            sub.grade || '-',
+            sub.graded_at ? formatDate(sub.graded_at) : 'Pending',
+          ]),
+          theme: 'grid',
+          headStyles: { fillColor: GREEN, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+          bodyStyles: { fontSize: 8, textColor: [30, 30, 30] },
+          alternateRowStyles: { fillColor: [249, 250, 251] },
+          margin: { left: 20, right: 20 },
+          styles: { cellPadding: 2.5 },
+        });
+      } else {
+        doc.setTextColor(...GRAY);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'italic');
+        doc.text('No submissions received', doc.internal.pageSize.getWidth() / 2, y + 8, { align: 'center' });
+      }
+
+      addFooter(doc, 'Subject Teacher', 'Head of Department');
+    });
+
+    doc.save(`GGS_Assignment_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   const printSingleSession = (sessionId: string) => {
     const session = liveData.find(s => s.id === sessionId);
-    if (!session) return;
-    printLiveDocument([session]);
+    if (session) printLiveDocument([session]);
   };
 
   const printSingleExam = (examId: string) => {
     const exam = examData.find(e => e.id === examId);
-    if (!exam) return;
-    printExamDocument([exam]);
+    if (exam) printExamDocument([exam]);
   };
 
   const printSingleAssignment = (assignmentId: string) => {
     const assignment = assignmentData.find(a => a.id === assignmentId);
-    if (!assignment) return;
-    printAssignmentDocument([assignment]);
-  };
-
-  const printLiveDocument = (sessions: LiveReport[]) => {
-    const win = window.open('', '_blank');
-    if (!win) return;
-    const pages = sessions.map((session, idx) => `
-      <div class="page">
-        ${generateLetterhead()}
-        <div class="doc-title-block">
-          <div class="doc-title">Live Class Attendance Register</div>
-          <div class="doc-ref">Ref: ${generateDocRef('LCA')}-${idx+1}</div>
-        </div>
-        <div class="info-grid">
-          <div class="info-row"><span class="label">Class Title:</span> <span class="value">${session.title}</span></div>
-          <div class="info-row"><span class="label">Date:</span> <span class="value">${formatDate(session.started_at)}</span></div>
-          <div class="info-row"><span class="label">Subject:</span> <span class="value">${session.subject?.name || 'General'}</span></div>
-          <div class="info-row"><span class="label">Duration:</span> <span class="value">${formatDuration(session.started_at, session.ended_at)}</span></div>
-          <div class="info-row"><span class="label">Stream:</span> <span class="value">${session.stream?.name || 'All Streams'}</span></div>
-          <div class="info-row"><span class="label">Status:</span> <span class="value">${session.status === 'live' ? 'In Progress' : 'Completed'}</span></div>
-        </div>
-        <div class="summary-box">
-          <div class="summary-item"><div class="num">${session.attendanceCount}</div><div class="lbl">Students Present</div></div>
-        </div>
-        ${session.attendance.length > 0 ? `
-          <table>
-            <thead>
-              <tr><th>No.</th><th>Student Name</th><th>Adm. Number</th><th>Stream</th><th>Form</th><th>Time Joined</th></tr>
-            </thead>
-            <tbody>
-              ${session.attendance.map((a, i) => `
-                <tr>
-                  <td>${i+1}</td>
-                  <td>${a.student?.full_name || 'Unknown'}</td>
-                  <td>${a.student?.admission_number || '-'}</td>
-                  <td>${a.student?.stream || '-'}</td>
-                  <td>Form ${a.student?.grade ? a.student.grade - 9 : '-'}</td>
-                  <td>${formatDate(a.joined_at)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        ` : '<p class="no-data">No attendance records for this session</p>'}
-        <div class="doc-footer">
-          <div class="signatures">
-            <div class="sig-block"><div class="sig-line">Teacher&rsquo;s Signature</div></div>
-            <div class="sig-block"><div class="sig-line">Head of Department</div></div>
-          </div>
-          <div class="stamp-area">Official School Stamp</div>
-          <div class="print-date">Printed: ${new Date().toLocaleString('en-KE', { dateStyle: 'full', timeStyle: 'short' })}</div>
-        </div>
-      </div>
-    `).join('');
-
-    win.document.write(`<!DOCTYPE html><html><head><title>GGS - Live Attendance Report</title><style>${letterheadCSS}</style></head><body>${pages}</body></html>`);
-    win.document.close();
-    setTimeout(() => win.print(), 300);
-  };
-
-  const printExamDocument = (exams: ExamReport[]) => {
-    const win = window.open('', '_blank');
-    if (!win) return;
-    const pages = exams.map((exam, idx) => `
-      <div class="page">
-        ${generateLetterhead()}
-        <div class="doc-title-block">
-          <div class="doc-title">Examination Attendance Report</div>
-          <div class="doc-ref">Ref: ${generateDocRef('EAR')}-${idx+1}</div>
-        </div>
-        <div class="info-grid">
-          <div class="info-row"><span class="label">Exam Title:</span> <span class="value">${exam.title}</span></div>
-          <div class="info-row"><span class="label">Created:</span> <span class="value">${formatDate(exam.created_at)}</span></div>
-          <div class="info-row"><span class="label">Subject:</span> <span class="value">${exam.subject?.name || 'General'}</span></div>
-          <div class="info-row"><span class="label">Mode:</span> <span class="value">${exam.mode.toUpperCase()}</span></div>
-          <div class="info-row"><span class="label">Stream:</span> <span class="value">${exam.stream?.name || 'All Streams'}</span></div>
-          <div class="info-row"><span class="label">Due Date:</span> <span class="value">${exam.due_date ? formatDate(exam.due_date) : 'N/A'}</span></div>
-        </div>
-        <div class="summary-box">
-          <div class="summary-item"><div class="num">${exam.totalAttempts}</div><div class="lbl">Total Attempts</div></div>
-          <div class="summary-item"><div class="num">${exam.submitted}</div><div class="lbl">Submitted</div></div>
-          <div class="summary-item"><div class="num">${exam.totalAttempts - exam.submitted}</div><div class="lbl">Incomplete</div></div>
-        </div>
-        ${exam.examSessions.length > 0 ? `
-          <table>
-            <thead>
-              <tr><th>No.</th><th>Student Name</th><th>Adm. Number</th><th>Stream</th><th>Status</th><th>Score</th><th>Date</th></tr>
-            </thead>
-            <tbody>
-              ${exam.examSessions.map((es, i) => `
-                <tr>
-                  <td>${i+1}</td>
-                  <td>${es.student?.full_name || 'Unknown'}</td>
-                  <td>${es.student?.admission_number || '-'}</td>
-                  <td>${es.student?.stream || '-'}</td>
-                  <td>${es.status === 'submitted' ? 'Submitted' : es.status === 'in_progress' ? 'In Progress' : es.status === 'timed_out' ? 'Timed Out' : es.status}</td>
-                  <td>${es.score !== null && es.total_points ? es.score + '/' + es.total_points : '-'}</td>
-                  <td>${formatDate(es.started_at)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        ` : '<p class="no-data">No exam attempts recorded</p>'}
-        <div class="doc-footer">
-          <div class="signatures">
-            <div class="sig-block"><div class="sig-line">Subject Teacher</div></div>
-            <div class="sig-block"><div class="sig-line">Examinations Office</div></div>
-          </div>
-          <div class="stamp-area">Official School Stamp</div>
-          <div class="print-date">Printed: ${new Date().toLocaleString('en-KE', { dateStyle: 'full', timeStyle: 'short' })}</div>
-        </div>
-      </div>
-    `).join('');
-
-    win.document.write(`<!DOCTYPE html><html><head><title>GGS - Exam Attendance Report</title><style>${letterheadCSS}</style></head><body>${pages}</body></html>`);
-    win.document.close();
-    setTimeout(() => win.print(), 300);
-  };
-
-  const printAssignmentDocument = (assignments: AssignmentReport[]) => {
-    const win = window.open('', '_blank');
-    if (!win) return;
-    const pages = assignments.map((a, idx) => `
-      <div class="page">
-        ${generateLetterhead()}
-        <div class="doc-title-block">
-          <div class="doc-title">Assignment Submission Report</div>
-          <div class="doc-ref">Ref: ${generateDocRef('ASR')}-${idx+1}</div>
-        </div>
-        <div class="info-grid">
-          <div class="info-row"><span class="label">Assignment:</span> <span class="value">${a.title}</span></div>
-          <div class="info-row"><span class="label">Created:</span> <span class="value">${formatDate(a.created_at)}</span></div>
-          <div class="info-row"><span class="label">Subject:</span> <span class="value">${a.subject?.name || 'General'}</span></div>
-          <div class="info-row"><span class="label">Type:</span> <span class="value">${a.mode.toUpperCase()}</span></div>
-          <div class="info-row"><span class="label">Stream:</span> <span class="value">${a.stream?.name || 'All Streams'}</span></div>
-          <div class="info-row"><span class="label">Due Date:</span> <span class="value">${a.due_date ? formatDate(a.due_date) : 'N/A'}</span></div>
-        </div>
-        <div class="summary-box">
-          <div class="summary-item"><div class="num">${a.totalSubmissions}</div><div class="lbl">Submitted</div></div>
-          <div class="summary-item"><div class="num">${a.graded}</div><div class="lbl">Graded</div></div>
-          <div class="summary-item"><div class="num">${a.totalSubmissions - a.graded}</div><div class="lbl">Ungraded</div></div>
-        </div>
-        ${a.submissions.length > 0 ? `
-          <table>
-            <thead>
-              <tr><th>No.</th><th>Student Name</th><th>Adm. Number</th><th>Stream</th><th>Submitted</th><th>Grade</th><th>Graded On</th></tr>
-            </thead>
-            <tbody>
-              ${a.submissions.map((sub, i) => `
-                <tr>
-                  <td>${i+1}</td>
-                  <td>${sub.student?.full_name || 'Unknown'}</td>
-                  <td>${sub.student?.admission_number || '-'}</td>
-                  <td>${sub.student?.stream || '-'}</td>
-                  <td>${formatDate(sub.submitted_at)}</td>
-                  <td>${sub.grade || '-'}</td>
-                  <td>${sub.graded_at ? formatDate(sub.graded_at) : 'Pending'}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        ` : '<p class="no-data">No submissions received</p>'}
-        <div class="doc-footer">
-          <div class="signatures">
-            <div class="sig-block"><div class="sig-line">Subject Teacher</div></div>
-            <div class="sig-block"><div class="sig-line">Head of Department</div></div>
-          </div>
-          <div class="stamp-area">Official School Stamp</div>
-          <div class="print-date">Printed: ${new Date().toLocaleString('en-KE', { dateStyle: 'full', timeStyle: 'short' })}</div>
-        </div>
-      </div>
-    `).join('');
-
-    win.document.write(`<!DOCTYPE html><html><head><title>GGS - Assignment Submission Report</title><style>${letterheadCSS}</style></head><body>${pages}</body></html>`);
-    win.document.close();
-    setTimeout(() => win.print(), 300);
+    if (assignment) printAssignmentDocument([assignment]);
   };
 
   const handlePrint = () => {
@@ -405,7 +472,7 @@ export default function TeacherReports() {
           disabled={loading}
           className="btn-primary px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 print:hidden"
         >
-          🖨️ Print Report
+          🖨️ Download PDF
         </button>
       </div>
 

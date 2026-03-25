@@ -136,7 +136,7 @@ export function AppShell({
 
       {/* Mobile header */}
       <header
-        className="lg:hidden mx-3 mt-3 rounded-2xl border border-border px-4 py-3 flex items-center justify-between sticky top-3 z-30 shadow-lg shadow-black/5 bg-background/80 backdrop-blur-xl"
+        className="lg:hidden fixed top-0 left-0 right-0 mx-3 mt-3 rounded-2xl border border-border px-4 py-3 flex items-center justify-between z-30 shadow-lg shadow-black/5 bg-background/80 backdrop-blur-xl"
       >
         <button
           onClick={() => setSidebarOpen(true)}
@@ -275,7 +275,7 @@ export function AppShell({
       {/* Main content */}
       <main className="flex-1 lg:pl-72 min-w-0 min-h-screen relative z-10 w-full">
         <AnimatedPage>
-          <div className="p-4 lg:p-8 max-w-7xl mx-auto pt-8">
+          <div className="p-4 lg:p-8 max-w-7xl mx-auto pt-20 lg:pt-8">
             {children}
           </div>
         </AnimatedPage>
