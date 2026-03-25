@@ -72,6 +72,7 @@ const adminNav: NavItem[] = [
   { label: 'Reports', href: '/admin/reports', icon: <FileText className="h-5 w-5" /> },
   { label: 'Grade Chats', href: '/admin/chat', icon: <MessageCircle className="h-5 w-5" /> },
   { label: 'Cleanup', href: '/admin/cleanup', icon: <Database className="h-5 w-5" /> },
+  { label: 'Settings', href: '/admin/settings', icon: <Settings className="h-5 w-5" /> },
 ];
 
 function getNavItems(role: UserRole): NavItem[] {
