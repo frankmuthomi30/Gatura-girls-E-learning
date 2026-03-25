@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { PageLoading, LoadingSpinner } from '@/components/Loading';
 import { StreamBadge } from '@/components/StreamBadge';
 import type { StreamName } from '@/lib/types';
@@ -89,7 +89,6 @@ export default function TeacherReports() {
   const [examData, setExamData] = useState<ExamReport[]>([]);
   const [assignmentData, setAssignmentData] = useState<AssignmentReport[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const printRef = useRef<HTMLDivElement>(null);
 
   const loadReport = async (type: Tab) => {
     setLoading(true);
@@ -107,46 +106,283 @@ export default function TeacherReports() {
 
   useEffect(() => { loadReport(tab); }, [tab]);
 
-  const handlePrint = () => {
-    const content = printRef.current;
-    if (!content) return;
+  const letterheadCSS = `
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    @page { size: A4; margin: 15mm 15mm 20mm 15mm; }
+    body { font-family: 'Times New Roman', 'Segoe UI', serif; color: #1a1a1a; font-size: 11pt; line-height: 1.4; }
+
+    .page { page-break-after: always; padding: 0; }
+    .page:last-child { page-break-after: avoid; }
+
+    /* ── LETTERHEAD ── */
+    .letterhead { text-align: center; padding-bottom: 12px; margin-bottom: 16px; position: relative; }
+    .letterhead::after { content: ''; display: block; height: 3px; background: linear-gradient(90deg, #065f46, #059669, #10b981, #059669, #065f46); margin-top: 12px; border-radius: 2px; }
+    .school-crest { width: 70px; height: 70px; margin: 0 auto 8px; }
+    .school-crest img { width: 100%; height: 100%; object-fit: contain; }
+    .school-name { font-size: 22pt; font-weight: bold; color: #065f46; letter-spacing: 1.5px; text-transform: uppercase; font-family: 'Times New Roman', serif; }
+    .school-motto { font-size: 9pt; color: #666; font-style: italic; margin-top: 2px; letter-spacing: 0.5px; }
+    .school-address { font-size: 8.5pt; color: #555; margin-top: 4px; }
+    .school-address span { margin: 0 8px; }
+
+    /* ── DOCUMENT TITLE ── */
+    .doc-title-block { text-align: center; margin: 16px 0; }
+    .doc-title { font-size: 14pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #1a1a1a; padding: 6px 0; border-top: 1.5px solid #333; border-bottom: 1.5px solid #333; display: inline-block; }
+    .doc-ref { font-size: 8pt; color: #888; margin-top: 6px; }
+
+    /* ── SESSION INFO ── */
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; margin: 14px 0; font-size: 10pt; }
+    .info-grid .label { color: #555; font-weight: normal; }
+    .info-grid .value { font-weight: 600; color: #1a1a1a; }
+    .info-row { display: flex; gap: 4px; }
+
+    /* ── TABLE ── */
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 9.5pt; }
+    th { background: #065f46; color: white; padding: 7px 10px; text-align: left; font-weight: 600; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.5px; }
+    td { padding: 6px 10px; border-bottom: 1px solid #e5e5e5; }
+    tr:nth-child(even) td { background: #f9fafb; }
+    tr:hover td { background: #f0fdf4; }
+
+    /* ── SUMMARY BOX ── */
+    .summary-box { display: flex; justify-content: space-around; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 10px; margin: 14px 0; text-align: center; }
+    .summary-item .num { font-size: 18pt; font-weight: bold; color: #065f46; }
+    .summary-item .lbl { font-size: 8pt; color: #555; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* ── FOOTER ── */
+    .doc-footer { margin-top: 30px; padding-top: 16px; border-top: 1.5px solid #ddd; }
+    .signatures { display: flex; justify-content: space-between; margin-top: 40px; }
+    .sig-block { text-align: center; width: 200px; }
+    .sig-line { border-top: 1px solid #333; padding-top: 4px; font-size: 9pt; color: #555; }
+    .stamp-area { text-align: center; margin-top: 20px; font-size: 8pt; color: #999; font-style: italic; }
+    .print-date { font-size: 8pt; color: #999; text-align: right; margin-top: 8px; }
+    .no-data { text-align: center; padding: 20px; color: #999; font-style: italic; }
+
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .page { page-break-after: always; }
+    }
+  `;
+
+  const generateLetterhead = () => {
+    return `
+      <div class="letterhead">
+        <div class="school-crest">
+          <img src="/icons/icon-192.svg" alt="School Crest" onerror="this.style.display='none'" />
+        </div>
+        <div class="school-name">Gatura Girls&rsquo; Secondary School</div>
+        <div class="school-motto">&ldquo;Education for Excellence&rdquo;</div>
+        <div class="school-address">
+          <span>P.O. Box 82 &mdash; Gatura</span>
+          <span>|</span>
+          <span>Murang&rsquo;a County, Kenya</span>
+          <span>|</span>
+          <span>E-Learning Platform</span>
+        </div>
+      </div>
+    `;
+  };
+
+  const generateDocRef = (type: string) => {
+    const now = new Date();
+    const ref = `GGS/${type}/${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+    return ref;
+  };
+
+  const printSingleSession = (sessionId: string) => {
+    const session = liveData.find(s => s.id === sessionId);
+    if (!session) return;
+    printLiveDocument([session]);
+  };
+
+  const printSingleExam = (examId: string) => {
+    const exam = examData.find(e => e.id === examId);
+    if (!exam) return;
+    printExamDocument([exam]);
+  };
+
+  const printSingleAssignment = (assignmentId: string) => {
+    const assignment = assignmentData.find(a => a.id === assignmentId);
+    if (!assignment) return;
+    printAssignmentDocument([assignment]);
+  };
+
+  const printLiveDocument = (sessions: LiveReport[]) => {
     const win = window.open('', '_blank');
     if (!win) return;
-    win.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>GGS E-Learning - Report</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; color: #333; }
-          .header { text-align: center; margin-bottom: 24px; border-bottom: 2px solid #333; padding-bottom: 16px; }
-          .header h1 { font-size: 20px; margin-bottom: 4px; }
-          .header p { font-size: 12px; color: #666; }
-          .session-title { font-size: 16px; font-weight: bold; margin: 20px 0 8px; padding: 8px; background: #f5f5f5; border-radius: 4px; }
-          .meta { font-size: 11px; color: #666; margin-bottom: 12px; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
-          th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; }
-          th { background: #f0f0f0; font-weight: 600; }
-          tr:nth-child(even) { background: #fafafa; }
-          .summary { font-size: 12px; margin-bottom: 8px; color: #555; }
-          .footer { text-align: center; margin-top: 30px; font-size: 10px; color: #999; border-top: 1px solid #ddd; padding-top: 10px; }
-          @media print { body { padding: 10px; } }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>Gatura Girls E-Learning Platform</h1>
-          <p>${tab === 'live' ? 'Live Class Attendance Report' : tab === 'exams' ? 'Exam Attendance Report' : 'Assignment Submission Report'}</p>
-          <p>Generated: ${new Date().toLocaleDateString('en-KE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+    const pages = sessions.map((session, idx) => `
+      <div class="page">
+        ${generateLetterhead()}
+        <div class="doc-title-block">
+          <div class="doc-title">Live Class Attendance Register</div>
+          <div class="doc-ref">Ref: ${generateDocRef('LCA')}-${idx+1}</div>
         </div>
-        ${content.innerHTML}
-        <div class="footer">Printed from GGS E-Learning Platform</div>
-      </body>
-      </html>
-    `);
+        <div class="info-grid">
+          <div class="info-row"><span class="label">Class Title:</span> <span class="value">${session.title}</span></div>
+          <div class="info-row"><span class="label">Date:</span> <span class="value">${formatDate(session.started_at)}</span></div>
+          <div class="info-row"><span class="label">Subject:</span> <span class="value">${session.subject?.name || 'General'}</span></div>
+          <div class="info-row"><span class="label">Duration:</span> <span class="value">${formatDuration(session.started_at, session.ended_at)}</span></div>
+          <div class="info-row"><span class="label">Stream:</span> <span class="value">${session.stream?.name || 'All Streams'}</span></div>
+          <div class="info-row"><span class="label">Status:</span> <span class="value">${session.status === 'live' ? 'In Progress' : 'Completed'}</span></div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-item"><div class="num">${session.attendanceCount}</div><div class="lbl">Students Present</div></div>
+        </div>
+        ${session.attendance.length > 0 ? `
+          <table>
+            <thead>
+              <tr><th>No.</th><th>Student Name</th><th>Adm. Number</th><th>Stream</th><th>Form</th><th>Time Joined</th></tr>
+            </thead>
+            <tbody>
+              ${session.attendance.map((a, i) => `
+                <tr>
+                  <td>${i+1}</td>
+                  <td>${a.student?.full_name || 'Unknown'}</td>
+                  <td>${a.student?.admission_number || '-'}</td>
+                  <td>${a.student?.stream || '-'}</td>
+                  <td>Form ${a.student?.grade ? a.student.grade - 9 : '-'}</td>
+                  <td>${formatDate(a.joined_at)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        ` : '<p class="no-data">No attendance records for this session</p>'}
+        <div class="doc-footer">
+          <div class="signatures">
+            <div class="sig-block"><div class="sig-line">Teacher&rsquo;s Signature</div></div>
+            <div class="sig-block"><div class="sig-line">Head of Department</div></div>
+          </div>
+          <div class="stamp-area">Official School Stamp</div>
+          <div class="print-date">Printed: ${new Date().toLocaleString('en-KE', { dateStyle: 'full', timeStyle: 'short' })}</div>
+        </div>
+      </div>
+    `).join('');
+
+    win.document.write(`<!DOCTYPE html><html><head><title>GGS - Live Attendance Report</title><style>${letterheadCSS}</style></head><body>${pages}</body></html>`);
     win.document.close();
-    win.print();
+    setTimeout(() => win.print(), 300);
+  };
+
+  const printExamDocument = (exams: ExamReport[]) => {
+    const win = window.open('', '_blank');
+    if (!win) return;
+    const pages = exams.map((exam, idx) => `
+      <div class="page">
+        ${generateLetterhead()}
+        <div class="doc-title-block">
+          <div class="doc-title">Examination Attendance Report</div>
+          <div class="doc-ref">Ref: ${generateDocRef('EAR')}-${idx+1}</div>
+        </div>
+        <div class="info-grid">
+          <div class="info-row"><span class="label">Exam Title:</span> <span class="value">${exam.title}</span></div>
+          <div class="info-row"><span class="label">Created:</span> <span class="value">${formatDate(exam.created_at)}</span></div>
+          <div class="info-row"><span class="label">Subject:</span> <span class="value">${exam.subject?.name || 'General'}</span></div>
+          <div class="info-row"><span class="label">Mode:</span> <span class="value">${exam.mode.toUpperCase()}</span></div>
+          <div class="info-row"><span class="label">Stream:</span> <span class="value">${exam.stream?.name || 'All Streams'}</span></div>
+          <div class="info-row"><span class="label">Due Date:</span> <span class="value">${exam.due_date ? formatDate(exam.due_date) : 'N/A'}</span></div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-item"><div class="num">${exam.totalAttempts}</div><div class="lbl">Total Attempts</div></div>
+          <div class="summary-item"><div class="num">${exam.submitted}</div><div class="lbl">Submitted</div></div>
+          <div class="summary-item"><div class="num">${exam.totalAttempts - exam.submitted}</div><div class="lbl">Incomplete</div></div>
+        </div>
+        ${exam.examSessions.length > 0 ? `
+          <table>
+            <thead>
+              <tr><th>No.</th><th>Student Name</th><th>Adm. Number</th><th>Stream</th><th>Status</th><th>Score</th><th>Date</th></tr>
+            </thead>
+            <tbody>
+              ${exam.examSessions.map((es, i) => `
+                <tr>
+                  <td>${i+1}</td>
+                  <td>${es.student?.full_name || 'Unknown'}</td>
+                  <td>${es.student?.admission_number || '-'}</td>
+                  <td>${es.student?.stream || '-'}</td>
+                  <td>${es.status === 'submitted' ? 'Submitted' : es.status === 'in_progress' ? 'In Progress' : es.status === 'timed_out' ? 'Timed Out' : es.status}</td>
+                  <td>${es.score !== null && es.total_points ? es.score + '/' + es.total_points : '-'}</td>
+                  <td>${formatDate(es.started_at)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        ` : '<p class="no-data">No exam attempts recorded</p>'}
+        <div class="doc-footer">
+          <div class="signatures">
+            <div class="sig-block"><div class="sig-line">Subject Teacher</div></div>
+            <div class="sig-block"><div class="sig-line">Examinations Office</div></div>
+          </div>
+          <div class="stamp-area">Official School Stamp</div>
+          <div class="print-date">Printed: ${new Date().toLocaleString('en-KE', { dateStyle: 'full', timeStyle: 'short' })}</div>
+        </div>
+      </div>
+    `).join('');
+
+    win.document.write(`<!DOCTYPE html><html><head><title>GGS - Exam Attendance Report</title><style>${letterheadCSS}</style></head><body>${pages}</body></html>`);
+    win.document.close();
+    setTimeout(() => win.print(), 300);
+  };
+
+  const printAssignmentDocument = (assignments: AssignmentReport[]) => {
+    const win = window.open('', '_blank');
+    if (!win) return;
+    const pages = assignments.map((a, idx) => `
+      <div class="page">
+        ${generateLetterhead()}
+        <div class="doc-title-block">
+          <div class="doc-title">Assignment Submission Report</div>
+          <div class="doc-ref">Ref: ${generateDocRef('ASR')}-${idx+1}</div>
+        </div>
+        <div class="info-grid">
+          <div class="info-row"><span class="label">Assignment:</span> <span class="value">${a.title}</span></div>
+          <div class="info-row"><span class="label">Created:</span> <span class="value">${formatDate(a.created_at)}</span></div>
+          <div class="info-row"><span class="label">Subject:</span> <span class="value">${a.subject?.name || 'General'}</span></div>
+          <div class="info-row"><span class="label">Type:</span> <span class="value">${a.mode.toUpperCase()}</span></div>
+          <div class="info-row"><span class="label">Stream:</span> <span class="value">${a.stream?.name || 'All Streams'}</span></div>
+          <div class="info-row"><span class="label">Due Date:</span> <span class="value">${a.due_date ? formatDate(a.due_date) : 'N/A'}</span></div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-item"><div class="num">${a.totalSubmissions}</div><div class="lbl">Submitted</div></div>
+          <div class="summary-item"><div class="num">${a.graded}</div><div class="lbl">Graded</div></div>
+          <div class="summary-item"><div class="num">${a.totalSubmissions - a.graded}</div><div class="lbl">Ungraded</div></div>
+        </div>
+        ${a.submissions.length > 0 ? `
+          <table>
+            <thead>
+              <tr><th>No.</th><th>Student Name</th><th>Adm. Number</th><th>Stream</th><th>Submitted</th><th>Grade</th><th>Graded On</th></tr>
+            </thead>
+            <tbody>
+              ${a.submissions.map((sub, i) => `
+                <tr>
+                  <td>${i+1}</td>
+                  <td>${sub.student?.full_name || 'Unknown'}</td>
+                  <td>${sub.student?.admission_number || '-'}</td>
+                  <td>${sub.student?.stream || '-'}</td>
+                  <td>${formatDate(sub.submitted_at)}</td>
+                  <td>${sub.grade || '-'}</td>
+                  <td>${sub.graded_at ? formatDate(sub.graded_at) : 'Pending'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        ` : '<p class="no-data">No submissions received</p>'}
+        <div class="doc-footer">
+          <div class="signatures">
+            <div class="sig-block"><div class="sig-line">Subject Teacher</div></div>
+            <div class="sig-block"><div class="sig-line">Head of Department</div></div>
+          </div>
+          <div class="stamp-area">Official School Stamp</div>
+          <div class="print-date">Printed: ${new Date().toLocaleString('en-KE', { dateStyle: 'full', timeStyle: 'short' })}</div>
+        </div>
+      </div>
+    `).join('');
+
+    win.document.write(`<!DOCTYPE html><html><head><title>GGS - Assignment Submission Report</title><style>${letterheadCSS}</style></head><body>${pages}</body></html>`);
+    win.document.close();
+    setTimeout(() => win.print(), 300);
+  };
+
+  const handlePrint = () => {
+    if (tab === 'live') printLiveDocument(liveData);
+    if (tab === 'exams') printExamDocument(examData);
+    if (tab === 'assignments') printAssignmentDocument(assignmentData);
   };
 
   const tabs: { key: Tab; label: string; icon: string }[] = [
@@ -195,18 +431,9 @@ export default function TeacherReports() {
       ) : (
         <>
           {/* Visible report content */}
-          {tab === 'live' && <LiveClassReport data={liveData} expandedId={expandedId} setExpandedId={setExpandedId} />}
-          {tab === 'exams' && <ExamReport data={examData} expandedId={expandedId} setExpandedId={setExpandedId} />}
-          {tab === 'assignments' && <AssignmentSubmissionReport data={assignmentData} expandedId={expandedId} setExpandedId={setExpandedId} />}
-
-          {/* Hidden printable content */}
-          <div className="hidden">
-            <div ref={printRef}>
-              {tab === 'live' && <LiveClassPrint data={liveData} />}
-              {tab === 'exams' && <ExamPrint data={examData} />}
-              {tab === 'assignments' && <AssignmentPrint data={assignmentData} />}
-            </div>
-          </div>
+          {tab === 'live' && <LiveClassReport data={liveData} expandedId={expandedId} setExpandedId={setExpandedId} onPrintSingle={printSingleSession} />}
+          {tab === 'exams' && <ExamReportView data={examData} expandedId={expandedId} setExpandedId={setExpandedId} onPrintSingle={printSingleExam} />}
+          {tab === 'assignments' && <AssignmentSubmissionReport data={assignmentData} expandedId={expandedId} setExpandedId={setExpandedId} onPrintSingle={printSingleAssignment} />}
         </>
       )}
     </div>
@@ -215,7 +442,7 @@ export default function TeacherReports() {
 
 /* ─────────────── LIVE CLASS ATTENDANCE ─────────────── */
 
-function LiveClassReport({ data, expandedId, setExpandedId }: { data: LiveReport[]; expandedId: string | null; setExpandedId: (id: string | null) => void }) {
+function LiveClassReport({ data, expandedId, setExpandedId, onPrintSingle }: { data: LiveReport[]; expandedId: string | null; setExpandedId: (id: string | null) => void; onPrintSingle: (id: string) => void }) {
   if (data.length === 0) return <EmptyState text="No live class sessions found" />;
 
   const totalAttendance = data.reduce((sum, s) => sum + s.attendanceCount, 0);
@@ -259,39 +486,47 @@ function LiveClassReport({ data, expandedId, setExpandedId }: { data: LiveReport
               </div>
             </button>
 
-            {expandedId === session.id && session.attendance.length > 0 && (
+            {expandedId === session.id && (
               <div className="mt-3 border-t border-border pt-3">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
-                        <th className="pb-2 pr-4">#</th>
-                        <th className="pb-2 pr-4">Student Name</th>
-                        <th className="pb-2 pr-4">Adm No.</th>
-                        <th className="pb-2 pr-4">Stream</th>
-                        <th className="pb-2">Joined At</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {session.attendance.map((a, i) => (
-                        <tr key={i} className="border-t border-border/50">
-                          <td className="py-2 pr-4 text-gray-400">{i + 1}</td>
-                          <td className="py-2 pr-4 font-medium">{a.student?.full_name || 'Unknown'}</td>
-                          <td className="py-2 pr-4 font-mono text-xs">{a.student?.admission_number || '-'}</td>
-                          <td className="py-2 pr-4">
-                            {a.student?.stream ? <StreamBadge stream={a.student.stream as StreamName} /> : '-'}
-                          </td>
-                          <td className="py-2 text-xs text-gray-500">{formatDate(a.joined_at)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="flex justify-end mb-3">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onPrintSingle(session.id); }}
+                    className="btn-secondary px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5"
+                  >
+                    🖨️ Print This Report
+                  </button>
                 </div>
+                {session.attendance.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
+                          <th className="pb-2 pr-4">#</th>
+                          <th className="pb-2 pr-4">Student Name</th>
+                          <th className="pb-2 pr-4">Adm No.</th>
+                          <th className="pb-2 pr-4">Stream</th>
+                          <th className="pb-2">Joined At</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {session.attendance.map((a, i) => (
+                          <tr key={i} className="border-t border-border/50">
+                            <td className="py-2 pr-4 text-gray-400">{i + 1}</td>
+                            <td className="py-2 pr-4 font-medium">{a.student?.full_name || 'Unknown'}</td>
+                            <td className="py-2 pr-4 font-mono text-xs">{a.student?.admission_number || '-'}</td>
+                            <td className="py-2 pr-4">
+                              {a.student?.stream ? <StreamBadge stream={a.student.stream as StreamName} /> : '-'}
+                            </td>
+                            <td className="py-2 text-xs text-gray-500">{formatDate(a.joined_at)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400">No students recorded attendance for this session.</p>
+                )}
               </div>
-            )}
-
-            {expandedId === session.id && session.attendance.length === 0 && (
-              <p className="mt-3 text-sm text-gray-400 border-t border-border pt-3">No students recorded attendance for this session.</p>
             )}
           </div>
         ))}
@@ -302,7 +537,7 @@ function LiveClassReport({ data, expandedId, setExpandedId }: { data: LiveReport
 
 /* ─────────────── EXAM ATTENDANCE ─────────────── */
 
-function ExamReport({ data, expandedId, setExpandedId }: { data: ExamReport[]; expandedId: string | null; setExpandedId: (id: string | null) => void }) {
+function ExamReportView({ data, expandedId, setExpandedId, onPrintSingle }: { data: ExamReport[]; expandedId: string | null; setExpandedId: (id: string | null) => void; onPrintSingle: (id: string) => void }) {
   if (data.length === 0) return <EmptyState text="No exams found" />;
 
   const totalAttempts = data.reduce((sum, a) => sum + a.totalAttempts, 0);
@@ -345,8 +580,17 @@ function ExamReport({ data, expandedId, setExpandedId }: { data: ExamReport[]; e
               </div>
             </button>
 
-            {expandedId === exam.id && exam.examSessions.length > 0 && (
+            {expandedId === exam.id && (
               <div className="mt-3 border-t border-border pt-3">
+                <div className="flex justify-end mb-3">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onPrintSingle(exam.id); }}
+                    className="btn-secondary px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5"
+                  >
+                    🖨️ Print This Report
+                  </button>
+                </div>
+                {exam.examSessions.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -387,11 +631,10 @@ function ExamReport({ data, expandedId, setExpandedId }: { data: ExamReport[]; e
                     </tbody>
                   </table>
                 </div>
+                ) : (
+                  <p className="text-sm text-gray-400">No students have attempted this exam yet.</p>
+                )}
               </div>
-            )}
-
-            {expandedId === exam.id && exam.examSessions.length === 0 && (
-              <p className="mt-3 text-sm text-gray-400 border-t border-border pt-3">No students have attempted this exam yet.</p>
             )}
           </div>
         ))}
@@ -402,7 +645,7 @@ function ExamReport({ data, expandedId, setExpandedId }: { data: ExamReport[]; e
 
 /* ─────────────── ASSIGNMENT SUBMISSIONS ─────────────── */
 
-function AssignmentSubmissionReport({ data, expandedId, setExpandedId }: { data: AssignmentReport[]; expandedId: string | null; setExpandedId: (id: string | null) => void }) {
+function AssignmentSubmissionReport({ data, expandedId, setExpandedId, onPrintSingle }: { data: AssignmentReport[]; expandedId: string | null; setExpandedId: (id: string | null) => void; onPrintSingle: (id: string) => void }) {
   if (data.length === 0) return <EmptyState text="No assignments found" />;
 
   const totalSubs = data.reduce((sum, a) => sum + a.totalSubmissions, 0);
@@ -447,8 +690,17 @@ function AssignmentSubmissionReport({ data, expandedId, setExpandedId }: { data:
               </div>
             </button>
 
-            {expandedId === assignment.id && assignment.submissions.length > 0 && (
+            {expandedId === assignment.id && (
               <div className="mt-3 border-t border-border pt-3">
+                <div className="flex justify-end mb-3">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onPrintSingle(assignment.id); }}
+                    className="btn-secondary px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5"
+                  >
+                    🖨️ Print This Report
+                  </button>
+                </div>
+                {assignment.submissions.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -479,11 +731,10 @@ function AssignmentSubmissionReport({ data, expandedId, setExpandedId }: { data:
                     </tbody>
                   </table>
                 </div>
+                ) : (
+                  <p className="text-sm text-gray-400">No submissions yet.</p>
+                )}
               </div>
-            )}
-
-            {expandedId === assignment.id && assignment.submissions.length === 0 && (
-              <p className="mt-3 text-sm text-gray-400 border-t border-border pt-3">No submissions yet.</p>
             )}
           </div>
         ))}
@@ -492,127 +743,6 @@ function AssignmentSubmissionReport({ data, expandedId, setExpandedId }: { data:
   );
 }
 
-/* ─────────────── PRINT TEMPLATES ─────────────── */
-
-function LiveClassPrint({ data }: { data: LiveReport[] }) {
-  return (
-    <div>
-      {data.map(session => (
-        <div key={session.id}>
-          <div className="session-title">{session.title}</div>
-          <div className="meta">
-            Date: {formatDate(session.started_at)} | Duration: {formatDuration(session.started_at, session.ended_at)}
-            {session.subject?.name ? ` | Subject: ${session.subject.name}` : ''}
-            {session.stream?.name ? ` | Stream: ${session.stream.name}` : ''}
-            | Students: {session.attendanceCount}
-          </div>
-          {session.attendance.length > 0 ? (
-            <table>
-              <thead>
-                <tr><th>#</th><th>Student Name</th><th>Adm No.</th><th>Stream</th><th>Grade</th><th>Joined At</th></tr>
-              </thead>
-              <tbody>
-                {session.attendance.map((a, i) => (
-                  <tr key={i}>
-                    <td>{i + 1}</td>
-                    <td>{a.student?.full_name || 'Unknown'}</td>
-                    <td>{a.student?.admission_number || '-'}</td>
-                    <td>{a.student?.stream || '-'}</td>
-                    <td>{a.student?.grade || '-'}</td>
-                    <td>{formatDate(a.joined_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="summary">No attendance recorded</p>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ExamPrint({ data }: { data: ExamReport[] }) {
-  return (
-    <div>
-      {data.map(exam => (
-        <div key={exam.id}>
-          <div className="session-title">{exam.title} ({exam.mode.toUpperCase()})</div>
-          <div className="meta">
-            Created: {formatDate(exam.created_at)}
-            {exam.subject?.name ? ` | Subject: ${exam.subject.name}` : ''}
-            {exam.stream?.name ? ` | Stream: ${exam.stream.name}` : ''}
-            | Attempts: {exam.totalAttempts} | Submitted: {exam.submitted}
-          </div>
-          {exam.examSessions.length > 0 ? (
-            <table>
-              <thead>
-                <tr><th>#</th><th>Student Name</th><th>Adm No.</th><th>Stream</th><th>Status</th><th>Score</th><th>Started</th></tr>
-              </thead>
-              <tbody>
-                {exam.examSessions.map((es, i) => (
-                  <tr key={i}>
-                    <td>{i + 1}</td>
-                    <td>{es.student?.full_name || 'Unknown'}</td>
-                    <td>{es.student?.admission_number || '-'}</td>
-                    <td>{es.student?.stream || '-'}</td>
-                    <td>{es.status === 'submitted' ? 'Submitted' : es.status === 'in_progress' ? 'In Progress' : es.status === 'timed_out' ? 'Timed Out' : es.status}</td>
-                    <td>{es.score !== null && es.total_points ? `${es.score}/${es.total_points}` : '-'}</td>
-                    <td>{formatDate(es.started_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="summary">No attempts recorded</p>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function AssignmentPrint({ data }: { data: AssignmentReport[] }) {
-  return (
-    <div>
-      {data.map(assignment => (
-        <div key={assignment.id}>
-          <div className="session-title">{assignment.title} ({assignment.mode.toUpperCase()})</div>
-          <div className="meta">
-            Created: {formatDate(assignment.created_at)}
-            {assignment.subject?.name ? ` | Subject: ${assignment.subject.name}` : ''}
-            {assignment.stream?.name ? ` | Stream: ${assignment.stream.name}` : ''}
-            {assignment.due_date ? ` | Due: ${formatDate(assignment.due_date)}` : ''}
-            | Submissions: {assignment.totalSubmissions} | Graded: {assignment.graded}
-          </div>
-          {assignment.submissions.length > 0 ? (
-            <table>
-              <thead>
-                <tr><th>#</th><th>Student Name</th><th>Adm No.</th><th>Stream</th><th>Submitted</th><th>Grade</th><th>Graded At</th></tr>
-              </thead>
-              <tbody>
-                {assignment.submissions.map((sub, i) => (
-                  <tr key={i}>
-                    <td>{i + 1}</td>
-                    <td>{sub.student?.full_name || 'Unknown'}</td>
-                    <td>{sub.student?.admission_number || '-'}</td>
-                    <td>{sub.student?.stream || '-'}</td>
-                    <td>{formatDate(sub.submitted_at)}</td>
-                    <td>{sub.grade || '-'}</td>
-                    <td>{sub.graded_at ? formatDate(sub.graded_at) : '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="summary">No submissions recorded</p>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
 
 /* ─────────────── SHARED COMPONENTS ─────────────── */
 
