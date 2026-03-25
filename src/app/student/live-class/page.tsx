@@ -27,6 +27,13 @@ export default function StudentLiveClass() {
   const [loading, setLoading] = useState(true);
   const [joinedRoom, setJoinedRoom] = useState<string | null>(null);
   const [joinedTitle, setJoinedTitle] = useState('');
+  const [roomOpened, setRoomOpened] = useState(false);
+
+  const openJitsiRoom = (roomId: string) => {
+    const jitsiUrl = `https://meet.jit.si/${roomId}#config.prejoinConfig.enabled=false&config.startWithAudioMuted=true&config.startWithVideoMuted=true&config.resolution=360&config.disableDeepLinking=true&config.p2p.enabled=true&config.channelLastN=4&config.enableLayerSuspension=true&interfaceConfig.DISABLE_JOIN_LEAVE_NOTIFICATIONS=true&interfaceConfig.MOBILE_APP_PROMO=false`;
+    window.open(jitsiUrl, '_blank');
+    setRoomOpened(true);
+  };
 
   const loadSessions = async () => {
     try {
@@ -51,7 +58,7 @@ export default function StudentLiveClass() {
   // Watching a class
   if (joinedRoom) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
         {/* Live header */}
         <div className="card border-2 border-red-500/30 bg-gradient-to-r from-red-500/5 to-transparent">
           <div className="flex items-center justify-between flex-wrap gap-3">
@@ -66,8 +73,8 @@ export default function StudentLiveClass() {
               </div>
             </div>
             <button
-              onClick={() => { setJoinedRoom(null); setJoinedTitle(''); }}
-              className="btn-secondary px-4 py-2 rounded-xl text-sm"
+              onClick={() => { setJoinedRoom(null); setJoinedTitle(''); setRoomOpened(false); }}
+              className="btn-secondary px-4 py-2 rounded-xl text-sm transition-all hover:scale-[1.02]"
             >
               ← Leave Class
             </button>
@@ -75,30 +82,42 @@ export default function StudentLiveClass() {
         </div>
 
         {/* Open Video Room */}
-        <div className="card text-center py-8 space-y-4">
-          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center text-white text-4xl mx-auto shadow-lg shadow-red-500/20">
+        <div className="card text-center py-8 space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center text-white text-4xl mx-auto shadow-lg shadow-red-500/20 transition-transform hover:scale-105">
             🎥
           </div>
           <div>
-            <p className="text-lg font-semibold">You&apos;re in! Click below to join the video</p>
+            <p className="text-lg font-semibold">
+              {roomOpened ? 'Video room is open!' : 'Click below to join the video'}
+            </p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              The video room opens in a new tab. No account needed — just click and join.
+              {roomOpened
+                ? 'Switch to the Jitsi tab. You can re-open it anytime if you closed it.'
+                : 'Opens in a new tab — no account needed, just click and join.'}
             </p>
           </div>
           <button
-            onClick={() => window.open(`https://meet.jit.si/${joinedRoom}`, '_blank')}
-            className="btn-primary px-8 py-3 rounded-xl font-semibold text-base inline-flex items-center gap-2 shadow-lg shadow-primary/20"
+            onClick={() => openJitsiRoom(joinedRoom)}
+            className={`px-8 py-3 rounded-xl font-semibold text-base inline-flex items-center gap-2 shadow-lg transition-all duration-300 ${
+              roomOpened
+                ? 'btn-secondary hover:shadow-md'
+                : 'btn-primary shadow-primary/20 hover:scale-[1.02]'
+            }`}
           >
-            ▶ Open Video Room
+            {roomOpened ? '🔄 Re-open Video Room' : '▶ Open Video Room'}
           </button>
-          <p className="text-xs text-gray-400">
-            Opens in a new browser tab — completely free, no login required
-          </p>
+          {roomOpened && (
+            <div className="flex items-center justify-center gap-2 text-sm text-green-600 dark:text-green-400 animate-in fade-in duration-300">
+              <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              Connected — check the video tab
+            </div>
+          )}
         </div>
 
         <div className="card bg-muted/30">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Your mic and camera will be <strong>off by default</strong>. You can turn them on in the video room controls.
+            Your mic and camera start <strong>off by default</strong>. Turn them on in the video room controls.
+            Video quality adjusts automatically based on your internet speed.
           </p>
         </div>
       </div>
@@ -148,7 +167,7 @@ export default function StudentLiveClass() {
         {sessions.map(s => (
           <div
             key={s.id}
-            className="card border-2 border-red-500/20 hover:border-red-500/40 transition-all overflow-hidden"
+            className="card border-2 border-red-500/20 hover:border-red-500/40 transition-all duration-300 overflow-hidden hover:shadow-lg"
           >
             <div className="flex items-start gap-4">
               {/* Live pulse icon */}
@@ -189,8 +208,8 @@ export default function StudentLiveClass() {
                 </div>
 
                 <button
-                  onClick={() => { setJoinedRoom(s.room_id); setJoinedTitle(s.title); }}
-                  className="btn-primary mt-4 px-8 py-2.5 rounded-xl font-semibold flex items-center gap-2 text-base shadow-lg shadow-primary/20"
+                  onClick={() => { setJoinedRoom(s.room_id); setJoinedTitle(s.title); openJitsiRoom(s.room_id); }}
+                  className="btn-primary mt-4 px-8 py-2.5 rounded-xl font-semibold flex items-center gap-2 text-base shadow-lg shadow-primary/20 transition-all duration-200 hover:scale-[1.02] active:scale-95"
                 >
                   <span className="text-lg">▶</span> Join Live Class
                 </button>

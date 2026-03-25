@@ -40,6 +40,7 @@ export default function TeacherLiveClass() {
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState('');
   const [elapsed, setElapsed] = useState('');
+  const [roomOpened, setRoomOpened] = useState(false);
   const [form, setForm] = useState({
     title: '',
     subject_id: '',
@@ -87,6 +88,7 @@ export default function TeacherLiveClass() {
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Failed to start');
       setActiveSession(result.session);
+      setRoomOpened(false);
       setForm({ title: '', subject_id: '', stream_id: '', grade: '' });
     } catch (err: any) {
       setError(err.message);
@@ -158,25 +160,43 @@ export default function TeacherLiveClass() {
           </div>
 
           {/* Open Video Room */}
-          <div className="card text-center py-8 space-y-4">
-            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white text-4xl mx-auto shadow-lg shadow-blue-500/20">
+          <div className="card text-center py-8 space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white text-4xl mx-auto shadow-lg shadow-blue-500/20 transition-transform hover:scale-105">
               📹
             </div>
             <div>
-              <p className="text-lg font-semibold">Your video room is ready</p>
+              <p className="text-lg font-semibold">{roomOpened ? 'Video room is open in another tab' : 'Your video room is ready'}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Click below to open the video room in a new tab. Share your screen, chat, and teach live.
+                {roomOpened
+                  ? 'Switch to the Jitsi tab to teach. You can re-open it anytime.'
+                  : 'Click below to open the video room. Share your screen, chat, and teach live.'}
               </p>
             </div>
             <button
-              onClick={() => window.open(`https://meet.jit.si/${activeSession.room_id}`, '_blank')}
-              className="btn-primary px-8 py-3 rounded-xl font-semibold text-base inline-flex items-center gap-2 shadow-lg shadow-primary/20"
+              onClick={() => {
+                const jitsiUrl = `https://meet.jit.si/${activeSession.room_id}#config.prejoinConfig.enabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&config.resolution=480&config.disableDeepLinking=true&config.p2p.enabled=true&config.channelLastN=6&config.enableLayerSuspension=true&interfaceConfig.DISABLE_JOIN_LEAVE_NOTIFICATIONS=true&interfaceConfig.MOBILE_APP_PROMO=false`;
+                window.open(jitsiUrl, '_blank');
+                setRoomOpened(true);
+              }}
+              className={`px-8 py-3 rounded-xl font-semibold text-base inline-flex items-center gap-2 shadow-lg transition-all duration-300 ${
+                roomOpened
+                  ? 'btn-secondary hover:shadow-md'
+                  : 'btn-primary shadow-primary/20 hover:scale-[1.02]'
+              }`}
             >
-              🎥 Open Video Room
+              {roomOpened ? '🔄 Re-open Video Room' : '🎥 Open Video Room'}
             </button>
-            <p className="text-xs text-gray-400">
-              Opens in a new browser tab — no account needed, completely free
-            </p>
+            {roomOpened && (
+              <div className="flex items-center justify-center gap-2 text-sm text-green-600 dark:text-green-400 animate-in fade-in duration-300">
+                <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                Connected — video room is active
+              </div>
+            )}
+            {!roomOpened && (
+              <p className="text-xs text-gray-400">
+                Opens in a new browser tab — no account needed, completely free
+              </p>
+            )}
           </div>
 
           {/* Room info */}
