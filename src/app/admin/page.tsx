@@ -3,6 +3,16 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PageLoading } from '@/components/Loading';
+import {
+  PieChart, Pie, Cell, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, Tooltip,
+  RadialBarChart, RadialBar,
+} from 'recharts';
+import {
+  Users, Briefcase, BookOpen, FileCheck,
+  HardDrive, Trash2, Clock, AlertTriangle,
+  ArrowRight, Radio,
+} from 'lucide-react';
 
 interface DashboardStats {
   totalStudents: number;
@@ -35,13 +45,125 @@ interface StorageHealth {
 }
 
 function formatStorage(valueMb: number) {
-  if (valueMb >= 1024) {
-    return `${(valueMb / 1024).toFixed(2)} GB`;
-  }
-
+  if (valueMb >= 1024) return `${(valueMb / 1024).toFixed(2)} GB`;
   return `${valueMb.toFixed(1)} MB`;
 }
 
+/* ── SVG Gauge / Speedometer ───────────────────────────────── */
+function Gauge({ value, max, label, color, icon }: {
+  value: number; max: number; label: string; color: string;
+  icon: React.ReactNode;
+}) {
+  const pct = max > 0 ? Math.min(value / max, 1) : 0;
+  const r = 54;
+  const circ = 2 * Math.PI * r;
+  const arc = circ * 0.75;           // 270° sweep
+  const offset = arc - arc * pct;
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <svg viewBox="0 0 128 110" className="w-full max-w-[160px]">
+        {/* track */}
+        <circle cx="64" cy="64" r={r} fill="none"
+          stroke="currentColor" className="text-border/40 dark:text-white/[0.07]"
+          strokeWidth="10" strokeLinecap="round"
+          strokeDasharray={`${arc} ${circ}`}
+          transform="rotate(135 64 64)" />
+        {/* value */}
+        <circle cx="64" cy="64" r={r} fill="none"
+          stroke={color} strokeWidth="10" strokeLinecap="round"
+          strokeDasharray={`${arc} ${circ}`}
+          strokeDashoffset={offset}
+          transform="rotate(135 64 64)"
+          className="transition-all duration-1000 ease-out" />
+        {/* center value */}
+        <text x="64" y="58" textAnchor="middle"
+          className="fill-foreground font-bold" style={{ fontSize: 26 }}>
+          {value}
+        </text>
+        <text x="64" y="76" textAnchor="middle"
+          className="fill-muted-foreground" style={{ fontSize: 10 }}>
+          {label}
+        </text>
+      </svg>
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground -mt-2">
+        {icon}
+      </div>
+    </div>
+  );
+}
+
+/* ── Mini Ring Stat ────────────────────────────────────────── */
+function RingStat({ value, total, label, color }: {
+  value: number; total: number; label: string; color: string;
+}) {
+  const data = [
+    { name: 'val', value: value },
+    { name: 'rest', value: Math.max(total - value, 0) },
+  ];
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <div className="w-16 h-16 relative">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={data} dataKey="value" cx="50%" cy="50%"
+              innerRadius={20} outerRadius={28} startAngle={90} endAngle={-270}
+              strokeWidth={0}>
+              <Cell fill={color} />
+              <Cell fill="var(--color-border-soft, rgba(148,163,184,0.18))" />
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+        <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-foreground">
+          {value}
+        </span>
+      </div>
+      <span className="text-[10px] text-muted-foreground leading-tight text-center">{label}</span>
+    </div>
+  );
+}
+
+/* ── Storage Gauge (radial bar) ────────────────────────────── */
+function StorageGauge({ usedMb, warningMb, criticalMb, status }: {
+  usedMb: number; warningMb: number; criticalMb: number; status: string;
+}) {
+  const cap = criticalMb * 1.2;
+  const pct = Math.min((usedMb / cap) * 100, 100);
+  const fill = status === 'critical' ? '#ef4444'
+    : status === 'warning' ? '#f59e0b' : '#10b981';
+  const data = [{ name: 'used', value: pct, fill }];
+  return (
+    <div className="relative w-36 h-36 mx-auto">
+      <ResponsiveContainer width="100%" height="100%">
+        <RadialBarChart cx="50%" cy="50%" innerRadius="70%" outerRadius="100%"
+          barSize={12} data={data} startAngle={210} endAngle={-30}>
+          <RadialBar dataKey="value" cornerRadius={8} background={{ fill: 'var(--color-border-soft, rgba(148,163,184,0.18))' }} />
+        </RadialBarChart>
+      </ResponsiveContainer>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <HardDrive className="w-5 h-5 mb-1" style={{ color: fill }} />
+        <span className="text-lg font-bold text-foreground">{formatStorage(usedMb)}</span>
+        <span className="text-[10px] text-muted-foreground">of {formatStorage(cap)}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ── Shared 3D glass card class ────────────────────────────── */
+const glass = [
+  'relative overflow-hidden rounded-[28px]',
+  'border border-white/20 dark:border-white/[0.08]',
+  'bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl',
+  'p-5 transition-all duration-300',
+  'shadow-[0_4px_6px_-1px_rgba(0,0,0,0.06),0_10px_22px_-5px_rgba(0,0,0,0.08),0_20px_50px_-12px_rgba(0,0,0,0.12),inset_0_1px_0_0_rgba(255,255,255,0.5)]',
+  'dark:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.2),0_10px_22px_-5px_rgba(0,0,0,0.3),0_20px_50px_-12px_rgba(0,0,0,0.4),inset_0_1px_0_0_rgba(255,255,255,0.06)]',
+].join(' ');
+
+const glassHover = `${glass} hover:-translate-y-1 hover:shadow-2xl`;
+
+const glassOverlay = 'absolute inset-0 bg-gradient-to-b from-white/40 via-transparent to-black/[0.02] dark:from-white/[0.06] dark:to-black/[0.08] pointer-events-none';
+
+/* ── Main Dashboard ────────────────────────────────────────── */
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [examStats, setExamStats] = useState<ExamStats>({ activeExams: 0, inProgress: 0, submitted: 0, timedOut: 0 });
@@ -55,18 +177,14 @@ export default function AdminDashboard() {
           fetch('/api/admin/dashboard', { cache: 'no-store' }),
           fetch('/api/admin/storage-health'),
         ]);
-
         if (dashboardResponse.ok) {
           const result = await dashboardResponse.json();
           setStats(result.stats);
           setExamStats(result.examStats);
         }
-
         if (storageHealthResponse.ok) {
           const storageResult = await storageHealthResponse.json();
           setStorageHealth(storageResult as StorageHealth);
-        } else {
-          setStorageHealth(null);
         }
       } catch { /* silent */ }
       setLoading(false);
@@ -78,155 +196,231 @@ export default function AdminDashboard() {
   if (!stats) return <div className="p-6 text-center text-gray-500">Failed to load dashboard data.</div>;
 
   const streamColors: Record<string, string> = {
-    Blue: '#185FA5', Green: '#1A6B45', Magenta: '#99355A',
-    Red: '#A32D2D', White: '#888780', Yellow: '#BA7517',
+    Blue: '#3b82f6', Green: '#22c55e', Magenta: '#ec4899',
+    Red: '#ef4444', White: '#94a3b8', Yellow: '#eab308',
   };
 
-  const storageTone = storageHealth?.status === 'critical'
-    ? 'border-red-200 bg-red-50 text-red-800 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-200'
-    : storageHealth?.status === 'warning'
-      ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200'
-      : 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-200';
+  const totalStudents = stats.totalStudents || 1;
+  const barData = Object.entries(streamColors).map(([name, color]) => ({
+    name, students: stats.streamCounts[name] || 0, fill: color,
+  }));
+  const pieData = barData.filter(d => d.students > 0);
+
+  const examTotal = examStats.inProgress + examStats.submitted + examStats.timedOut || 1;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" style={{ perspective: '1200px' }}>
       <h1 className="page-title">Admin Dashboard</h1>
 
+      {/* ─── Top Gauges Row ─── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { val: stats.totalStudents, max: 1200, label: 'Students', color: '#22c55e',
+            icon: <Users className="w-3.5 h-3.5" />, href: '/admin/students' },
+          { val: stats.totalTeachers, max: 50, label: 'Teachers', color: '#3b82f6',
+            icon: <Briefcase className="w-3.5 h-3.5" />, href: '/admin/teachers' },
+          { val: stats.totalAssignments, max: Math.max(stats.totalAssignments * 1.5, 20), label: 'Assignments', color: '#a855f7',
+            icon: <BookOpen className="w-3.5 h-3.5" />, href: '#' },
+          { val: stats.totalSubmissions, max: Math.max(stats.totalSubmissions * 1.3, 50), label: 'Submissions', color: '#f97316',
+            icon: <FileCheck className="w-3.5 h-3.5" />, href: '#' },
+        ].map((g) => (
+          <Link key={g.label} href={g.href} className={glassHover}>
+            <div className={glassOverlay} />
+            <div className="relative">
+              <Gauge value={g.val} max={g.max} label={g.label}
+                color={g.color} icon={g.icon} />
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* ─── Live Exam Activity ─── */}
+      {(examStats.activeExams > 0 || examStats.inProgress > 0) && (
+        <div className={glass}>
+          <div className={glassOverlay} />
+          <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/[0.04] via-transparent to-orange-500/[0.04] pointer-events-none" />
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="relative flex items-center justify-center w-8 h-8">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-yellow-400/40 animate-ping" />
+                <Radio className="w-4 h-4 text-yellow-500 relative z-10" />
+              </div>
+              <h2 className="font-semibold text-lg text-foreground">Live Exam Activity</h2>
+              <span className="ml-auto text-xs text-muted-foreground">{examStats.activeExams} active exam(s)</span>
+            </div>
+            <div className="flex items-center justify-center gap-6">
+              <RingStat value={examStats.inProgress} total={examTotal} label="In Progress" color="#eab308" />
+              <RingStat value={examStats.submitted} total={examTotal} label="Submitted" color="#22c55e" />
+              <RingStat value={examStats.timedOut} total={examTotal} label="Timed Out" color="#ef4444" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Stream Breakdown: Bar + Pie ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Bar chart */}
+        <div className={glass}>
+          <div className={glassOverlay} />
+          <div className="relative">
+            <h2 className="font-semibold text-base mb-4 text-foreground">Students per Stream</h2>
+            <div className="h-52">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={barData} barSize={28} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false}
+                    className="fill-muted-foreground" />
+                  <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false}
+                    className="fill-muted-foreground" />
+                  <Tooltip
+                    contentStyle={{
+                      background: 'rgba(255,255,255,0.85)',
+                      backdropFilter: 'blur(12px)',
+                      border: '1px solid rgba(148,163,184,0.2)',
+                      borderRadius: 16,
+                      boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+                    }}
+                    cursor={{ fill: 'rgba(148,163,184,0.08)' }}
+                  />
+                  <Bar dataKey="students" radius={[8, 8, 0, 0]}>
+                    {barData.map((d) => (
+                      <Cell key={d.name} fill={d.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Pie / donut chart */}
+        <div className={glass}>
+          <div className={glassOverlay} />
+          <div className="relative">
+            <h2 className="font-semibold text-base mb-4 text-foreground">Stream Distribution</h2>
+            <div className="h-52 flex items-center">
+              <div className="w-1/2 h-full relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={pieData} dataKey="students" cx="50%" cy="50%"
+                      innerRadius="48%" outerRadius="80%" paddingAngle={3}
+                      strokeWidth={0}>
+                      {pieData.map((d) => (
+                        <Cell key={d.name} fill={d.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        background: 'rgba(255,255,255,0.85)',
+                        backdropFilter: 'blur(12px)',
+                        border: '1px solid rgba(148,163,184,0.2)',
+                        borderRadius: 16,
+                        boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <span className="absolute inset-0 flex items-center justify-center text-xl font-bold text-foreground pointer-events-none">
+                  {stats.totalStudents}
+                </span>
+              </div>
+              <div className="w-1/2 space-y-2 pl-2">
+                {pieData.map((d) => (
+                  <div key={d.name} className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: d.fill }} />
+                    <span className="text-xs text-foreground">{d.name}</span>
+                    <span className="ml-auto text-xs font-semibold text-foreground">{d.students}</span>
+                    <span className="text-[10px] text-muted-foreground w-8 text-right">
+                      {Math.round((d.students / totalStudents) * 100)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── Storage Health Gauge ─── */}
       {storageHealth && (
-        <div className={`card border ${storageTone}`}>
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="max-w-3xl">
-              <p className="text-xs uppercase tracking-[0.22em] opacity-75">Storage Health</p>
-              <h2 className="mt-2 text-xl font-semibold">
-                {storageHealth.status === 'critical'
-                  ? 'Storage is near the dashboard critical threshold'
+        <div className={glass}>
+          <div className={glassOverlay} />
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.03] via-transparent to-teal-500/[0.03] pointer-events-none" />
+          <div className="relative">
+            <h2 className="font-semibold text-base mb-2 text-foreground flex items-center gap-2">
+              <HardDrive className="w-4 h-4 text-muted-foreground" />
+              Storage Health
+              <span className={`ml-2 text-xs font-medium px-2.5 py-0.5 rounded-full ${
+                storageHealth.status === 'critical'
+                  ? 'bg-red-500/15 text-red-600 dark:text-red-400'
                   : storageHealth.status === 'warning'
-                    ? 'Storage is rising and should be reviewed'
-                    : 'Storage is within the safe range'}
-              </h2>
-              <p className="mt-2 text-sm leading-6 opacity-90">
-                Uploaded submission files currently use about {formatStorage(storageHealth.totalMegabytes)} across {storageHealth.fileCount} stored object(s).
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3 min-w-[260px]">
-              <div className="rounded-2xl bg-white/70 px-4 py-3 dark:bg-slate-900/40">
-                <p className="text-xs uppercase tracking-[0.18em] opacity-70">Usage</p>
-                <p className="mt-2 text-2xl font-bold">{formatStorage(storageHealth.totalMegabytes)}</p>
-              </div>
-              <div className="rounded-2xl bg-white/70 px-4 py-3 dark:bg-slate-900/40">
-                <p className="text-xs uppercase tracking-[0.18em] opacity-70">Cleanup Candidates</p>
-                <p className="mt-2 text-2xl font-bold">{storageHealth.cleanupCandidateCount}</p>
-              </div>
-            </div>
-          </div>
+                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                    : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+              }`}>
+                {storageHealth.status}
+              </span>
+            </h2>
 
-          <div className="mt-4 grid gap-3 lg:grid-cols-3">
-            <div className="rounded-2xl bg-white/70 px-4 py-3 dark:bg-slate-900/40">
-              <p className="text-xs uppercase tracking-[0.18em] opacity-70">Warning Threshold</p>
-              <p className="mt-2 font-semibold">{formatStorage(storageHealth.thresholds.warningMb)}</p>
-            </div>
-            <div className="rounded-2xl bg-white/70 px-4 py-3 dark:bg-slate-900/40">
-              <p className="text-xs uppercase tracking-[0.18em] opacity-70">Critical Threshold</p>
-              <p className="mt-2 font-semibold">{formatStorage(storageHealth.thresholds.criticalMb)}</p>
-            </div>
-            <div className="rounded-2xl bg-white/70 px-4 py-3 dark:bg-slate-900/40">
-              <p className="text-xs uppercase tracking-[0.18em] opacity-70">Oldest Upload</p>
-              <p className="mt-2 font-semibold">
-                {storageHealth.oldestUploadAt
-                  ? new Date(storageHealth.oldestUploadAt).toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' })
-                  : 'No uploads yet'}
-              </p>
-            </div>
-          </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+              <StorageGauge
+                usedMb={storageHealth.totalMegabytes}
+                warningMb={storageHealth.thresholds.warningMb}
+                criticalMb={storageHealth.thresholds.criticalMb}
+                status={storageHealth.status}
+              />
 
-          <div className="mt-4 space-y-2 text-sm leading-6 opacity-90">
-            {storageHealth.recommendations.map((item) => (
-              <p key={item}>{item}</p>
+              <div className="sm:col-span-2 grid grid-cols-2 gap-3">
+                {[
+                  { icon: <HardDrive className="w-3.5 h-3.5" />, label: 'Files Stored', value: storageHealth.fileCount },
+                  { icon: <Trash2 className="w-3.5 h-3.5" />, label: 'Cleanup Ready', value: storageHealth.cleanupCandidateCount },
+                  { icon: <AlertTriangle className="w-3.5 h-3.5" />, label: 'Warning At', value: formatStorage(storageHealth.thresholds.warningMb) },
+                  { icon: <Clock className="w-3.5 h-3.5" />, label: 'Oldest Upload', value: storageHealth.oldestUploadAt
+                    ? new Date(storageHealth.oldestUploadAt).toLocaleDateString('en-KE', { month: 'short', day: 'numeric' })
+                    : '—' },
+                ].map((item) => (
+                  <div key={item.label}
+                    className="rounded-2xl bg-white/40 dark:bg-white/5 backdrop-blur-sm border border-white/30 dark:border-white/[0.06] p-3 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.3)]">
+                    <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                      {item.icon}
+                      <span className="text-[10px] uppercase tracking-wider">{item.label}</span>
+                    </div>
+                    <p className="text-lg font-bold text-foreground">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {storageHealth.recommendations.length > 0 && (
+              <div className="mt-4 rounded-2xl bg-white/30 dark:bg-white/[0.03] backdrop-blur-sm border border-border/30 p-3">
+                {storageHealth.recommendations.map((r) => (
+                  <p key={r} className="text-xs text-muted-foreground leading-5">{r}</p>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Quick Actions ─── */}
+      <div className={glass}>
+        <div className={glassOverlay} />
+        <div className="relative">
+          <h2 className="font-semibold text-base mb-4 text-foreground">Quick Actions</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[
+              { label: 'Import Students', href: '/admin/students', style: 'from-green-500 to-emerald-600' },
+              { label: 'Add Teacher', href: '/admin/teachers', style: 'from-blue-500 to-indigo-600' },
+              { label: 'Manage Subjects', href: '/admin/subjects', style: 'from-purple-500 to-violet-600' },
+              { label: 'Grade Chats', href: '/admin/chat', style: 'from-pink-500 to-rose-600' },
+              { label: 'Storage Cleanup', href: '/admin/cleanup', style: 'from-amber-500 to-orange-600' },
+              { label: 'View Reports', href: '/admin/reports', style: 'from-cyan-500 to-teal-600' },
+            ].map((a) => (
+              <Link key={a.label} href={a.href}
+                className={`group flex items-center justify-between px-5 py-3.5 rounded-2xl bg-gradient-to-r ${a.style} text-white font-semibold text-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300`}>
+                {a.label}
+                <ArrowRight className="w-4 h-4 opacity-60 group-hover:translate-x-1 transition-transform" />
+              </Link>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Summary Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Link href="/admin/students" className="card text-center hover:border-primary/30 transition-colors">
-          <p className="text-3xl font-bold text-primary dark:text-primary-foreground">{stats.totalStudents}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Students</p>
-        </Link>
-        <Link href="/admin/teachers" className="card text-center hover:border-primary/30 transition-colors">
-          <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.totalTeachers}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Teachers</p>
-        </Link>
-        <div className="card text-center">
-          <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">{stats.totalAssignments}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Assignments</p>
-        </div>
-        <div className="card text-center">
-          <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">{stats.totalSubmissions}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Submissions</p>
-        </div>
-      </div>
-
-      {/* Live Exam Monitor Panel */}
-      {(examStats.activeExams > 0 || examStats.inProgress > 0) && (
-        <div className="card border-2 border-yellow-300 bg-yellow-50 dark:border-yellow-900/50 dark:bg-yellow-900/20">
-          <h2 className="font-semibold text-lg text-yellow-800 dark:text-yellow-200 mb-3">📡 Live Exam Activity</h2>
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div>
-              <p className="text-2xl font-bold text-yellow-700 dark:text-yellow-400">{examStats.inProgress}</p>
-              <p className="text-xs text-yellow-600 dark:text-yellow-500">🟡 In Exam Now</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-green-700 dark:text-green-400">{examStats.submitted}</p>
-              <p className="text-xs text-green-600 dark:text-green-500">🟢 Submitted</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-red-700 dark:text-red-400">{examStats.timedOut}</p>
-              <p className="text-xs text-red-600 dark:text-red-500">🔴 Timed Out</p>
-            </div>
-          </div>
-          <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-3">{examStats.activeExams} active exam(s) across all teachers</p>
-        </div>
-      )}
-
-      {/* Stream Breakdown */}
-      <div className="card">
-        <h2 className="font-semibold text-lg mb-3">Students by Stream</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-          {Object.entries(streamColors).map(([name, color]) => (
-            <div key={name} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-slate-900/40">
-              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-              <div>
-                <p className="font-medium text-sm">{name}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{stats.streamCounts[name] || 0} students</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="card">
-        <h2 className="font-semibold text-lg mb-3">Quick Actions</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Link href="/admin/students" className="btn-primary text-center text-sm">
-            Import Students (CSV)
-          </Link>
-          <Link href="/admin/teachers" className="btn-primary text-center text-sm">
-            Add Teacher
-          </Link>
-          <Link href="/admin/subjects" className="btn-primary text-center text-sm">
-            Manage Subjects
-          </Link>
-          <Link href="/admin/chat" className="btn-secondary text-center text-sm">
-            Moderate Grade Chats
-          </Link>
-          <Link href="/admin/cleanup" className="btn-secondary text-center text-sm">
-            Review Storage Cleanup
-          </Link>
-          <Link href="/admin/reports" className="btn-secondary text-center text-sm">
-            View Reports
-          </Link>
         </div>
       </div>
     </div>
