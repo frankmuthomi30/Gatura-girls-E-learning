@@ -106,8 +106,12 @@ export default function AdminSettingsPage() {
     );
   }
 
+  const card3d = 'relative overflow-hidden rounded-[28px] border border-white/20 dark:border-white/[0.08] bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl' +
+    ' shadow-[0_4px_6px_-1px_rgba(0,0,0,0.06),0_10px_22px_-5px_rgba(0,0,0,0.08),0_20px_50px_-12px_rgba(0,0,0,0.12),inset_0_1px_0_0_rgba(255,255,255,0.5)]' +
+    ' dark:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.2),0_10px_22px_-5px_rgba(0,0,0,0.3),0_20px_50px_-12px_rgba(0,0,0,0.4),inset_0_1px_0_0_rgba(255,255,255,0.06)]';
+
   return (
-    <div className="space-y-6 max-w-lg">
+    <div className="space-y-6 max-w-lg" style={{ perspective: '1200px' }}>
       {/* Page Header */}
       <div>
         <h1 className="page-title">Admin Settings</h1>
@@ -116,11 +120,12 @@ export default function AdminSettingsPage() {
         </p>
       </div>
 
-      {/* Account Info — Glass Card */}
-      <div className="relative overflow-hidden rounded-[28px] border border-border/50 bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl shadow-xl p-6">
+      {/* Account Info — 3D Glass Card */}
+      <div className={card3d}>
+        <div className="absolute inset-0 bg-gradient-to-b from-white/40 via-transparent to-black/[0.02] dark:from-white/[0.06] dark:to-black/[0.08] pointer-events-none" />
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 pointer-events-none" />
         <div className="relative flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 backdrop-blur-sm border border-primary/10 flex items-center justify-center shadow-lg">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 backdrop-blur-sm border border-primary/10 flex items-center justify-center shadow-[0_4px_12px_-2px_rgba(0,0,0,0.12),inset_0_1px_0_0_rgba(255,255,255,0.3)]">
             <ShieldCheck className="w-7 h-7 text-primary" />
           </div>
           <div>
@@ -132,12 +137,13 @@ export default function AdminSettingsPage() {
         </div>
       </div>
 
-      {/* Update Display Name — Glass Card */}
-      <form onSubmit={handleProfileUpdate} className="relative overflow-hidden rounded-[28px] border border-border/50 bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl shadow-xl p-6 space-y-5">
+      {/* Update Display Name — 3D Glass Card */}
+      <form onSubmit={handleProfileUpdate} className={`${card3d} space-y-5`}>
+        <div className="absolute inset-0 bg-gradient-to-b from-white/40 via-transparent to-black/[0.02] dark:from-white/[0.06] dark:to-black/[0.08] pointer-events-none" />
         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/[0.03] via-transparent to-indigo-500/[0.03] pointer-events-none" />
         <div className="relative space-y-5">
           <h2 className="font-semibold text-lg flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center shadow-[0_2px_8px_-2px_rgba(59,130,246,0.25),inset_0_1px_0_0_rgba(255,255,255,0.2)]">
               <User className="w-4.5 h-4.5 text-blue-600 dark:text-blue-400" />
             </div>
             Update Profile
@@ -169,19 +175,20 @@ export default function AdminSettingsPage() {
           <button
             type="submit"
             disabled={profileLoading || fullName.trim() === profile?.full_name}
-            className="h-12 px-6 rounded-2xl bg-gradient-to-r from-primary to-primary/90 text-primary-foreground font-bold hover:shadow-lg hover:shadow-primary/25 disabled:opacity-50 transition-all duration-300 flex items-center gap-2"
+            className="h-12 px-6 rounded-2xl bg-gradient-to-b from-primary to-primary/85 text-primary-foreground font-bold shadow-[0_4px_14px_-3px_rgba(var(--color-primary),0.4),inset_0_1px_0_0_rgba(255,255,255,0.2)] hover:shadow-[0_6px_20px_-3px_rgba(var(--color-primary),0.5),inset_0_1px_0_0_rgba(255,255,255,0.25)] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 transition-all duration-300 flex items-center gap-2"
           >
             {profileLoading ? <><LoadingSpinner size="sm" /> Saving...</> : <><Save className="w-4 h-4" /> Save Changes</>}
           </button>
         </div>
       </form>
 
-      {/* Change Password — Glass Card */}
-      <form onSubmit={handlePasswordChange} className="relative overflow-hidden rounded-[28px] border border-border/50 bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl shadow-xl p-6 space-y-5">
+      {/* Change Password — 3D Glass Card */}
+      <form onSubmit={handlePasswordChange} className={`${card3d} space-y-5`}>
+        <div className="absolute inset-0 bg-gradient-to-b from-white/40 via-transparent to-black/[0.02] dark:from-white/[0.06] dark:to-black/[0.08] pointer-events-none" />
         <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.03] via-transparent to-orange-500/[0.03] pointer-events-none" />
         <div className="relative space-y-5">
           <h2 className="font-semibold text-lg flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center shadow-[0_2px_8px_-2px_rgba(245,158,11,0.25),inset_0_1px_0_0_rgba(255,255,255,0.2)]">
               <KeyRound className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400" />
             </div>
             Change Password
@@ -199,7 +206,7 @@ export default function AdminSettingsPage() {
           )}
 
           {/* Requirements Panel — Inner Glass */}
-          <div className="rounded-2xl bg-white/40 dark:bg-white/5 backdrop-blur-sm border border-border/40 p-4 space-y-2.5">
+          <div className="rounded-2xl bg-white/40 dark:bg-white/5 backdrop-blur-sm border border-white/30 dark:border-white/[0.06] p-4 space-y-2.5 shadow-[inset_0_2px_4px_0_rgba(0,0,0,0.03),0_1px_3px_0_rgba(0,0,0,0.04)]">
             <p className="text-xs font-semibold text-foreground mb-2">Password Requirements:</p>
             <PasswordRequirement met={newPassword.length >= 8} text="At least 8 characters" />
             <PasswordRequirement met={/[A-Z]/.test(newPassword)} text="One uppercase letter (A-Z)" />
@@ -251,7 +258,7 @@ export default function AdminSettingsPage() {
           <button
             type="submit"
             disabled={pwLoading}
-            className="h-12 px-6 rounded-2xl bg-gradient-to-r from-primary to-primary/90 text-primary-foreground font-bold hover:shadow-lg hover:shadow-primary/25 disabled:opacity-50 transition-all duration-300 flex items-center gap-2"
+            className="h-12 px-6 rounded-2xl bg-gradient-to-b from-primary to-primary/85 text-primary-foreground font-bold shadow-[0_4px_14px_-3px_rgba(var(--color-primary),0.4),inset_0_1px_0_0_rgba(255,255,255,0.2)] hover:shadow-[0_6px_20px_-3px_rgba(var(--color-primary),0.5),inset_0_1px_0_0_rgba(255,255,255,0.25)] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 transition-all duration-300 flex items-center gap-2"
           >
             {pwLoading ? <><LoadingSpinner size="sm" /> Updating...</> : <><KeyRound className="w-4 h-4" /> Change Password</>}
           </button>
