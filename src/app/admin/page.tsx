@@ -6,7 +6,6 @@ import { PageLoading } from '@/components/Loading';
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, Tooltip,
-  RadialBarChart, RadialBar,
 } from 'recharts';
 import {
   Users, Briefcase, BookOpen, FileCheck,
@@ -123,28 +122,110 @@ function RingStat({ value, total, label, color }: {
   );
 }
 
-/* ── Storage Gauge (radial bar) ────────────────────────────── */
-function StorageGauge({ usedMb, warningMb, criticalMb, status }: {
+/* ── Storage Ring (SVG green→yellow→red arc) ──────────────── */
+function StorageGauge({ usedMb, warningMb, criticalMb }: {
   usedMb: number; warningMb: number; criticalMb: number; status: string;
 }) {
-  const cap = criticalMb * 1.2;
-  const pct = Math.min((usedMb / cap) * 100, 100);
-  const fill = status === 'critical' ? '#ef4444'
-    : status === 'warning' ? '#f59e0b' : '#10b981';
-  const data = [{ name: 'used', value: pct, fill }];
+  const cap = criticalMb * 1.2;               // ring represents 0 → 120% of critical
+  const pct = Math.min(usedMb / cap, 1);      // 0–1
+  const warnPct = warningMb / cap;             // where warning starts on ring
+  const critPct = criticalMb / cap;            // where critical starts on ring
+
+  // Ring geometry: 240° sweep (from 150° to -90° = 240°)
+  const r = 58;
+  const cx = 70;
+  const cy = 70;
+  const circ = 2 * Math.PI * r;
+  const sweepDeg = 240;
+  const arc = circ * (sweepDeg / 360);
+  const startAngle = 150;                      // bottom-left
+
+  // Helper: polar → cartesian at angle (degrees, CW from top)
+  const polarToXY = (angleDeg: number) => {
+    const rad = ((angleDeg - 90) * Math.PI) / 180;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  };
+
+  // Gradient stop positions mapped to ring
+  const gradId = 'storageGrad';
+
+  // Value arc dashoffset
+  const valueOffset = arc - arc * pct;
+
+  // Tick marks at warning & critical
+  const warnAngle = startAngle - sweepDeg * warnPct;
+  const critAngle = startAngle - sweepDeg * critPct;
+  const warnPt = polarToXY(warnAngle);
+  const critPt = polarToXY(critAngle);
+  const warnPtInner = (() => { const rad = ((warnAngle - 90) * Math.PI) / 180; return { x: cx + (r - 14) * Math.cos(rad), y: cy + (r - 14) * Math.sin(rad) }; })();
+  const critPtInner = (() => { const rad = ((critAngle - 90) * Math.PI) / 180; return { x: cx + (r - 14) * Math.cos(rad), y: cy + (r - 14) * Math.sin(rad) }; })();
+
+  // Needle position
+  const needleAngle = startAngle - sweepDeg * pct;
+  const needlePt = polarToXY(needleAngle);
+  const needlePtShort = (() => { const rad = ((needleAngle - 90) * Math.PI) / 180; return { x: cx + (r - 22) * Math.cos(rad), y: cy + (r - 22) * Math.sin(rad) }; })();
+
+  // Color at current position
+  const currentColor = pct >= critPct ? '#ef4444' : pct >= warnPct ? '#f59e0b' : '#22c55e';
+
   return (
-    <div className="relative w-36 h-36 mx-auto">
-      <ResponsiveContainer width="100%" height="100%">
-        <RadialBarChart cx="50%" cy="50%" innerRadius="70%" outerRadius="100%"
-          barSize={12} data={data} startAngle={210} endAngle={-30}>
-          <RadialBar dataKey="value" cornerRadius={8} background={{ fill: 'var(--color-border-soft, rgba(148,163,184,0.18))' }} />
-        </RadialBarChart>
-      </ResponsiveContainer>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <HardDrive className="w-5 h-5 mb-1" style={{ color: fill }} />
-        <span className="text-lg font-bold text-foreground">{formatStorage(usedMb)}</span>
-        <span className="text-[10px] text-muted-foreground">of {formatStorage(cap)}</span>
-      </div>
+    <div className="relative w-40 h-40 mx-auto">
+      <svg viewBox="0 0 140 140" className="w-full h-full">
+        <defs>
+          <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#22c55e" />
+            <stop offset="45%" stopColor="#eab308" />
+            <stop offset="75%" stopColor="#f59e0b" />
+            <stop offset="100%" stopColor="#ef4444" />
+          </linearGradient>
+        </defs>
+
+        {/* Background track */}
+        <circle cx={cx} cy={cy} r={r} fill="none"
+          stroke="currentColor" className="text-border/30 dark:text-white/[0.06]"
+          strokeWidth="11" strokeLinecap="round"
+          strokeDasharray={`${arc} ${circ}`}
+          transform={`rotate(${startAngle + 180} ${cx} ${cy})`} />
+
+        {/* Colored value arc with gradient */}
+        <circle cx={cx} cy={cy} r={r} fill="none"
+          stroke={`url(#${gradId})`}
+          strokeWidth="11" strokeLinecap="round"
+          strokeDasharray={`${arc} ${circ}`}
+          strokeDashoffset={valueOffset}
+          transform={`rotate(${startAngle + 180} ${cx} ${cy})`}
+          className="transition-all duration-1000 ease-out" />
+
+        {/* Warning tick */}
+        <line x1={warnPtInner.x} y1={warnPtInner.y} x2={warnPt.x} y2={warnPt.y}
+          stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+        {/* Critical tick */}
+        <line x1={critPtInner.x} y1={critPtInner.y} x2={critPt.x} y2={critPt.y}
+          stroke="#ef4444" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+
+        {/* Needle dot */}
+        <line x1={needlePtShort.x} y1={needlePtShort.y} x2={needlePt.x} y2={needlePt.y}
+          stroke={currentColor} strokeWidth="3" strokeLinecap="round"
+          className="transition-all duration-1000 ease-out" />
+        <circle cx={needlePt.x} cy={needlePt.y} r="4" fill={currentColor}
+          className="transition-all duration-1000 ease-out" />
+
+        {/* Center text */}
+        <text x={cx} y={cy - 4} textAnchor="middle"
+          className="fill-foreground font-bold" style={{ fontSize: 18 }}>
+          {formatStorage(usedMb)}
+        </text>
+        <text x={cx} y={cy + 12} textAnchor="middle"
+          className="fill-muted-foreground" style={{ fontSize: 9 }}>
+          of {formatStorage(criticalMb)} limit
+        </text>
+
+        {/* Scale labels */}
+        <text x="18" y="118" textAnchor="middle"
+          className="fill-muted-foreground" style={{ fontSize: 8 }}>0</text>
+        <text x="122" y="118" textAnchor="middle"
+          className="fill-muted-foreground" style={{ fontSize: 8 }}>{formatStorage(cap)}</text>
+      </svg>
     </div>
   );
 }
