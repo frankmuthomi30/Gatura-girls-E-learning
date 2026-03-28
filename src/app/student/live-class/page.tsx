@@ -53,7 +53,7 @@ export default function StudentLiveClass() {
 
   const openJitsiRoom = (roomId: string) => {
     const encodedName = encodeURIComponent(studentName || 'Student');
-    const jitsiUrl = `https://meet.jit.si/${roomId}#userInfo.displayName="${encodedName}"&config.prejoinConfig.enabled=false&config.startWithAudioMuted=true&config.startWithVideoMuted=true&config.resolution=720&config.constraints.video.height.ideal=720&config.constraints.video.height.max=720&config.disableDeepLinking=true&config.p2p.enabled=true&config.channelLastN=4&config.enableLayerSuspension=true&config.enableNoAudioDetection=true&config.enableNoisyMicDetection=true&config.enableTalkWhileMuted=true&interfaceConfig.DISABLE_JOIN_LEAVE_NOTIFICATIONS=true&interfaceConfig.MOBILE_APP_PROMO=false`;
+    const jitsiUrl = `https://meet.jit.si/${roomId}#userInfo.displayName=${encodedName}&config.prejoinConfig.enabled=true&config.startWithAudioMuted=true&config.startWithVideoMuted=true&config.resolution=720&config.constraints.video.height.ideal=720&config.constraints.video.height.max=720&config.disableDeepLinking=true&config.disableInitialGUM=false&config.p2p.enabled=true&config.channelLastN=4&config.enableLayerSuspension=true&config.enableNoAudioDetection=true&config.enableNoisyMicDetection=true&config.enableTalkWhileMuted=true&interfaceConfig.DISABLE_JOIN_LEAVE_NOTIFICATIONS=true&interfaceConfig.MOBILE_APP_PROMO=false`;
     window.open(jitsiUrl, '_blank');
     setRoomOpened(true);
   };
