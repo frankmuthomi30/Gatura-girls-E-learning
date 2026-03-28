@@ -184,7 +184,7 @@ export default function TeacherLiveClass() {
             <button
               onClick={() => {
                 const encodedName = encodeURIComponent(teacherName || 'Teacher');
-                const jitsiUrl = `https://meet.jit.si/${activeSession.room_id}#userInfo.displayName="${encodedName}"&config.prejoinConfig.enabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&config.resolution=720&config.constraints.video.height.ideal=720&config.constraints.video.height.max=720&config.disableDeepLinking=true&config.p2p.enabled=true&config.channelLastN=6&config.enableLayerSuspension=true&config.enableNoAudioDetection=true&config.enableNoisyMicDetection=true&config.disableAP=false&config.stereo=false&config.enableTalkWhileMuted=true&interfaceConfig.DISABLE_JOIN_LEAVE_NOTIFICATIONS=true&interfaceConfig.MOBILE_APP_PROMO=false`;
+                const jitsiUrl = `https://meet.jit.si/${activeSession.room_id}#userInfo.displayName="${encodedName}"&config.prejoinConfig.enabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&config.resolution=1080&config.constraints.video.height.ideal=1080&config.constraints.video.height.max=1080&config.disableDeepLinking=true&config.p2p.enabled=true&config.channelLastN=6&config.enableLayerSuspension=true&config.enableNoAudioDetection=true&config.enableNoisyMicDetection=true&config.disableAP=false&config.stereo=false&config.enableTalkWhileMuted=true&interfaceConfig.DISABLE_JOIN_LEAVE_NOTIFICATIONS=true&interfaceConfig.MOBILE_APP_PROMO=false`;
                 window.open(jitsiUrl, '_blank');
                 setRoomOpened(true);
               }}
