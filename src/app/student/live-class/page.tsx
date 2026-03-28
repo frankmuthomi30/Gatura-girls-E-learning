@@ -28,6 +28,15 @@ export default function StudentLiveClass() {
   const [joinedRoom, setJoinedRoom] = useState<string | null>(null);
   const [joinedTitle, setJoinedTitle] = useState('');
   const [roomOpened, setRoomOpened] = useState(false);
+  const [studentName, setStudentName] = useState('');
+
+  // Fetch student name for Jitsi display
+  useEffect(() => {
+    fetch('/api/auth/profile', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.profile?.full_name) setStudentName(d.profile.full_name); })
+      .catch(() => {});
+  }, []);
 
   const joinSession = (session: LiveSession) => {
     setJoinedRoom(session.room_id);
@@ -43,7 +52,8 @@ export default function StudentLiveClass() {
   };
 
   const openJitsiRoom = (roomId: string) => {
-    const jitsiUrl = `https://meet.jit.si/${roomId}#config.prejoinConfig.enabled=false&config.startWithAudioMuted=true&config.startWithVideoMuted=true&config.resolution=360&config.disableDeepLinking=true&config.p2p.enabled=true&config.channelLastN=4&config.enableLayerSuspension=true&interfaceConfig.DISABLE_JOIN_LEAVE_NOTIFICATIONS=true&interfaceConfig.MOBILE_APP_PROMO=false`;
+    const encodedName = encodeURIComponent(studentName || 'Student');
+    const jitsiUrl = `https://meet.jit.si/${roomId}#userInfo.displayName="${encodedName}"&config.prejoinConfig.enabled=false&config.startWithAudioMuted=true&config.startWithVideoMuted=true&config.resolution=360&config.disableDeepLinking=true&config.p2p.enabled=true&config.channelLastN=4&config.enableLayerSuspension=true&config.enableNoAudioDetection=true&config.enableNoisyMicDetection=true&config.enableTalkWhileMuted=true&interfaceConfig.DISABLE_JOIN_LEAVE_NOTIFICATIONS=true&interfaceConfig.MOBILE_APP_PROMO=false`;
     window.open(jitsiUrl, '_blank');
     setRoomOpened(true);
   };

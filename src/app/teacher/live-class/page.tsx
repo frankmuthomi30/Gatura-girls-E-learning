@@ -41,12 +41,21 @@ export default function TeacherLiveClass() {
   const [error, setError] = useState('');
   const [elapsed, setElapsed] = useState('');
   const [roomOpened, setRoomOpened] = useState(false);
+  const [teacherName, setTeacherName] = useState('');
   const [form, setForm] = useState({
     title: '',
     subject_id: '',
     stream_id: '',
     grade: '',
   });
+
+  // Fetch teacher name for Jitsi display
+  useEffect(() => {
+    fetch('/api/auth/profile', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.profile?.full_name) setTeacherName(d.profile.full_name); })
+      .catch(() => {});
+  }, []);
 
   const loadData = useCallback(async () => {
     try {
@@ -174,7 +183,8 @@ export default function TeacherLiveClass() {
             </div>
             <button
               onClick={() => {
-                const jitsiUrl = `https://meet.jit.si/${activeSession.room_id}#config.prejoinConfig.enabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&config.resolution=480&config.disableDeepLinking=true&config.p2p.enabled=true&config.channelLastN=6&config.enableLayerSuspension=true&interfaceConfig.DISABLE_JOIN_LEAVE_NOTIFICATIONS=true&interfaceConfig.MOBILE_APP_PROMO=false`;
+                const encodedName = encodeURIComponent(teacherName || 'Teacher');
+                const jitsiUrl = `https://meet.jit.si/${activeSession.room_id}#userInfo.displayName="${encodedName}"&config.prejoinConfig.enabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&config.resolution=480&config.disableDeepLinking=true&config.p2p.enabled=true&config.channelLastN=6&config.enableLayerSuspension=true&config.enableNoAudioDetection=true&config.enableNoisyMicDetection=true&config.disableAP=false&config.stereo=false&config.enableTalkWhileMuted=true&interfaceConfig.DISABLE_JOIN_LEAVE_NOTIFICATIONS=true&interfaceConfig.MOBILE_APP_PROMO=false`;
                 window.open(jitsiUrl, '_blank');
                 setRoomOpened(true);
               }}
